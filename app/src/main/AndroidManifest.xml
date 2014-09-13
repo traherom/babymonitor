@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.moreharts.babymonitor"
+    android:installLocation="internalOnly" >
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".server.ServerStatus"
+            android:label="@string/title_activity_server_status" >
+        </activity>
+
+        <service
+            android:name=".server.ServerBackgroundService"
+            android:enabled="true"
+            android:exported="false" >
+        </service>
+
+        <activity
+            android:name=".client.ClientStatus"
+            android:label="@string/title_activity_client_status" >
+        </activity>
+        <activity
+            android:name="com.moreharts.babymonitor.BabyMonitor"
+            android:label="@string/title_activity_baby_monitor"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".preferences.GlobalSettingsActivity"
+            android:label="@string/title_activity_global_settings" >
+        </activity>
+
+        <receiver
+            android:name="com.moreharts.babymonitor.BootReceiver"
+            android:enabled="true"
+            android:exported="true" >
+            <intent-filter>
+
+                <!--
+                <category android:name="android.intent.category.DEFAULT" />
+				<action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                -->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".client.ClientBackgroundService"
+            android:exported="false" >
+        </service>
+    </application>
+
+</manifest>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Baby Monitor</string>
+    <string name="action_settings">Settings</string>
+    <string name="switch_to_client_mode">Switch to Client Mode</string>
+    <string name="switch_to_server_mode">Switch to Server Mode</string>
+    <string name="action_quit">Quit</string>
+    <string name="action_example">Example action</string>
+    <string name="title_activity_client_status">Baby Monitor - Client</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="title_activity_server_status">Baby Monitor - Server</string>
+    <string name="title_activity_baby_monitor">Baby Monitor</string>
+    <string name="title_activity_global_settings">Settings</string>
+
+    <!-- Trust and certs -->
+    <string name="trust_added">New BabyMonitor trusted</string>
+    <string name="trust_add_failed">Failed to add new BabyMonitor</string>
+
+    <!-- Preferences -->
+    <string name="pref_monitorMode">Default Mode</string>
+    <string name="pref_monitorMode_default">client</string>
+
+    <string-array name="pref_monitorMode_entries">
+        <item>Client</item>
+        <item>Server</item>
+    </string-array>
+    <string-array name="pref_monitorMode_values">
+        <item>client</item>
+        <item>server</item>
+    </string-array>
+
+
+    <string name="pref_runOnStartup">Run On Boot</string>
+    <string name="pref_runOnStartupOn_summary">Start Baby Monitor in the background on boot</string>
+    <string name="pref_runOnStartupOff_summary">Do not start Baby Monitor in the background on boot</string>
+
+</resources>

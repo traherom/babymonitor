@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <ListPreference
+        android:key="pref_defaultMode"
+        android:title="@string/pref_monitorMode"
+        android:dialogTitle="@string/pref_monitorMode"
+        android:entries="@array/pref_monitorMode_entries"
+        android:entryValues="@array/pref_monitorMode_values"
+        android:defaultValue="@string/pref_monitorMode_default" />
+    <CheckBoxPreference
+        android:key="pref_runOnStartup"
+        android:title="@string/pref_runOnStartup"
+        android:summaryOn="@string/pref_runOnStartupOn_summary"
+        android:summaryOff="@string/pref_runOnStartupOff_summary"
+        android:defaultValue="true" />
+</PreferenceScreen>
