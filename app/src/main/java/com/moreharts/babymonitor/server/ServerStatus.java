@@ -7,6 +7,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.content.Intent;
 
+import com.moreharts.babymonitor.service.MonitorService;
 import com.moreharts.babymonitor.client.ClientStatus;
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.preferences.GlobalSettingsActivity;
@@ -46,7 +47,7 @@ public class ServerStatus extends ListActivity {
             case R.id.action_quit:
                 // Kill server and quit
                 killBackgroundMonitor(this);
-                ClientStatus.killBackgroundMonitor(this);
+                MonitorService.killMonitor(this);
                 finish();
                 return true;
             default:
@@ -56,10 +57,10 @@ public class ServerStatus extends ListActivity {
 
     public static void killBackgroundMonitor(Context context) {
         // If running, ends the background monitor service
-        context.stopService(new Intent(context, ServerBackgroundService.class));
+        context.stopService(new Intent(context, MonitorService.class));
     }
 
     public static void startMonitor(Context context) {
-        context.startService(new Intent(context, ServerBackgroundService.class));
+        context.startService(new Intent(context, MonitorService.class));
     }
 }

@@ -1,2 +1,2 @@
-include ':app', ':Jumble'
-project(':Jumble').projectDir = new File('libraries/Jumble')
+include ':libraries:Jumble', ':app'
+

@@ -3,6 +3,8 @@
 
     <string name="app_name">Baby Monitor</string>
     <string name="action_settings">Settings</string>
+    <string name="switch_server">Choose server</string>
+    <string name="disconnect">Disconnect</string>
     <string name="switch_to_client_mode">Switch to Client Mode</string>
     <string name="switch_to_server_mode">Switch to Server Mode</string>
     <string name="action_quit">Quit</string>
@@ -34,5 +36,7 @@
     <string name="pref_runOnStartup">Run On Boot</string>
     <string name="pref_runOnStartupOn_summary">Start Baby Monitor in the background on boot</string>
     <string name="pref_runOnStartupOff_summary">Do not start Baby Monitor in the background on boot</string>
+    <string name="soundActivated">Sound Activated</string>
+    <string name="alwaysListening">Always On</string>
 
 </resources>

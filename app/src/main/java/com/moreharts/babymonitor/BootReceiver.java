@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 import android.preference.PreferenceManager;
 
-import com.moreharts.babymonitor.client.ClientStatus;
+import com.moreharts.babymonitor.service.MonitorService;
 import com.moreharts.babymonitor.server.ServerStatus;
 
 public class BootReceiver extends BroadcastReceiver {
@@ -24,7 +24,7 @@ public class BootReceiver extends BroadcastReceiver {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         if(sharedPreferences.getBoolean("pref_startOnStartup", false)) {
             if (sharedPreferences.getString("pref_monitorMode", "client") == "client") {
-                ClientStatus.startMonitor(context);
+                MonitorService.startMonitor(context);
             }
             else {
                 ServerStatus.startMonitor(context);
