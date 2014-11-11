@@ -1,4 +1,4 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -6,53 +6,20 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     android:paddingBottom="@dimen/activity_vertical_margin"
-    tools:context="com.moreharts.babymonitor.client.ClientStatus">
+    android:orientation="vertical"
+    tools:context="com.moreharts.babymonitor.ui.ClientStatus">
 
-    <ToggleButton
-        android:layout_width="wrap_content"
+    <fragment android:name="com.moreharts.babymonitor.ui.StatusListFragment"
+        android:id="@+id/status_list"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_weight="10"
+        tools:layout="@layout/fragment_item_list" />
+
+    <fragment android:name="com.moreharts.babymonitor.ui.ClientControlFragment"
+        android:id="@+id/client_controls"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="Listen Now"
-        android:id="@+id/listenToggleBtn"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true"
-        android:checked="false"
-        android:textOff="@string/alwaysListening"
-        android:textOn="@string/soundActivated"
-        android:longClickable="false"
-        android:onClick="onListenModeToggle" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Starting up"
-        android:id="@+id/connectedStatus"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_toLeftOf="@+id/connectNowBtn"
-        android:layout_toStartOf="@+id/connectNowBtn" />
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Connect"
-        android:id="@+id/connectNowBtn"
-        android:onClick="onConnectBtnClick"
-        android:layout_toStartOf="@+id/joinRoomBtn"
-        android:layout_below="@+id/connectedStatus"
-        android:layout_centerHorizontal="true" />
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Join Room"
-        android:id="@+id/joinRoomBtn"
-        android:onClick="onJoinBtnClick"
-        android:layout_alignTop="@+id/connectNowBtn"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true" />
-
-</RelativeLayout>
+        android:layout_weight="1"
+        tools:layout="@layout/fragment_client_control" />
+</LinearLayout>

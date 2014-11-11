@@ -3,6 +3,10 @@ package com.moreharts.babymonitor.preferences;
 import android.content.SharedPreferences;
 import android.content.Context;
 import android.preference.PreferenceManager;
+
+import com.moreharts.babymonitor.service.MonitorService;
+import com.moreharts.babymonitor.ui.ServerList;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -14,8 +18,13 @@ import java.io.FileNotFoundException;
  */
 public class Settings {
     public static final String PREF_SETUP_COMPLETE = "setupComplete";
+    public static final String PREF_START_ON_BOOT = "runOnBoot";
     public static final String PREF_CERT = "certificatePath";
     public static final String PREF_MODE = "isClientMode";
+    public static final String PREF_HOST = "mumbleHost";
+    public static final String PREF_PORT = "mumblePort";
+    public static final String PREF_USERNAME = "mumbleUser";
+    public static final String PREF_THRESHOLD = "defaultSensitivity";
 
     private final SharedPreferences preferences;
 
@@ -59,11 +68,66 @@ public class Settings {
         editor.apply();
     }
 
-    public boolean isClientMode() {
+    public boolean getIsRxMode() {
         return preferences.getBoolean(PREF_MODE, true);
     }
 
-    public boolean isServerMode() {
-        return !isClientMode();
+    public void setRxMode(boolean isRx) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean(PREF_MODE, isRx);
+        editor.apply();
+    }
+
+    public String getUserName() {
+        return preferences.getString(PREF_USERNAME, null);
+    }
+
+    public void setUserName(String name) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString(PREF_USERNAME, name);
+        editor.apply();
+    }
+
+    public String getMumbleHost() {
+        return preferences.getString(PREF_HOST, null);
+    }
+
+    public int getMumblePort() {
+        return preferences.getInt(PREF_PORT, ServerList.DEFAULT_PORT);
+    }
+
+    public void setMumbleHost(String host) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString(PREF_HOST, host);
+        editor.apply();
+    }
+
+    public void setMumblePort(int port) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt(PREF_PORT, port);
+        editor.apply();
+    }
+
+    public boolean getStartOnBoot() {
+        return preferences.getBoolean(PREF_START_ON_BOOT, true);
+    }
+
+    public void setStartOnBoot(boolean shouldStart) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean(PREF_START_ON_BOOT, shouldStart);
+        editor.apply();
+    }
+
+    public float getThreshold() {
+        return preferences.getFloat(PREF_THRESHOLD, MonitorService.DEFAULT_THRESHOLD);
+    }
+
+    public void setThreshold(float thresh) {
+        if(thresh < 0 || thresh > 1)
+            throw new IllegalArgumentException("Sensitivity must be between 0 and 1");
+
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putFloat(PREF_THRESHOLD, thresh);
+        editor.apply();
     }
 }

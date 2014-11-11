@@ -1,0 +1,23 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="com.moreharts.babymonitor.ui.ClientControlFragment">
+
+    <SeekBar
+        android:id="@+id/thresholdSlider"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="70" />
+
+    <ToggleButton
+        android:id="@+id/mute_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textOn="Mute"
+        android:textOff="Mute"
+        android:layout_gravity="left|top" />
+
+</LinearLayout>

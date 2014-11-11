@@ -6,10 +6,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.preference.PreferenceManager;
 
-import com.moreharts.babymonitor.client.ClientStatus;
+import com.moreharts.babymonitor.ui.ClientStatus;
 import com.moreharts.babymonitor.preferences.BabyCertificateManager;
 import com.moreharts.babymonitor.preferences.Settings;
-import com.moreharts.babymonitor.server.ServerStatus;
 
 import org.spongycastle.operator.OperatorCreationException;
 
@@ -62,15 +61,7 @@ public class BabyMonitor extends Activity {
             }
         }
 
-        // Start the correct default screen (server or client)
-        Intent defaultScreen = null;
-        if(settings.isClientMode()) {
-            defaultScreen = new Intent(this, ClientStatus.class);
-        }
-        else {
-            defaultScreen = new Intent(this, ServerStatus.class);
-        }
-
-        startActivity(defaultScreen);
+        // Start the status screen
+        startActivity(new Intent(this, ClientStatus.class));
     }
 }
