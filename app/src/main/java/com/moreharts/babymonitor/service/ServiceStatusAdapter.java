@@ -218,6 +218,10 @@ public class ServiceStatusAdapter implements ListAdapter {
                     e.printStackTrace();
                     secondaryLine.setText("Remote Exception Error");
                 }
+                catch(NullPointerException e) {
+                    e.printStackTrace();
+                    secondaryLine.setText("Null pointer exception");
+                }
             }
             else {
                 secondaryLine.setText("Disconnected");

@@ -44,18 +44,8 @@ public class ClientStatus extends FragmentActivity implements
             mService = binder.getService();
 
             // Watch for non-Jumble info updates
-            mService.setServiceListener(new MonitorService.MonitorServiceListener() {
-                @Override
-                public void onVADThresholdChange(float threshold) {
-                    mClientControlFragment.setThreshold(threshold);
-                    mStatusList.forceRefresh();
-                }
-
-                @Override
-                public void onTXModeChange(boolean isTxMode) {
-                    refreshControlFragmentVisibility();
-                }
-            });
+            mService.addOnTxModeChangedListener(mOnTxModeChangedListener);
+            mService.addOnVADThresholdChangedListener(mOnVADThresholdChangedListener);
 
             // Set up UI appropriately at the beginning
             refreshOptionsMenuVisibility();
@@ -82,9 +72,26 @@ public class ClientStatus extends FragmentActivity implements
                 e.printStackTrace();
             }
 
-            mService.setServiceListener(null);
+            mService.removeOnTxModeChangedListener(mOnTxModeChangedListener);
+            mService.removeOnVADThresholdChangedListener(mOnVADThresholdChangedListener);
+
             mStatusAdapter.setService(null);
             mService = null;
+        }
+    };
+
+    private MonitorService.OnTxModeChangedListener mOnTxModeChangedListener = new MonitorService.OnTxModeChangedListener() {
+        @Override
+        public void onTXModeChanged(MonitorService service, boolean isTxMode) {
+            refreshControlFragmentVisibility();
+        }
+    };
+
+    private MonitorService.OnVADThresholdChangedListener mOnVADThresholdChangedListener = new MonitorService.OnVADThresholdChangedListener() {
+        @Override
+        public void onVADThresholdChanged(MonitorService service, float newThreshold) {
+            mClientControlFragment.setThreshold(newThreshold);
+            mStatusList.forceRefresh();
         }
     };
 
@@ -185,7 +192,7 @@ public class ClientStatus extends FragmentActivity implements
 
     @Override
     public void onManualServerCancel(ManualServerFragment dialog) {
-        Log.d(TAG, "USer cancelled changing server parameters, ignoring");
+        Log.d(TAG, "User cancelled changing server parameters, ignoring");
     }
 
     @Override

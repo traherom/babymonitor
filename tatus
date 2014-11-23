@@ -1,0 +1,380 @@
+[1mdiff --git a/app/src/main/java/com/moreharts/babymonitor/service/MonitorService.java b/app/src/main/java/com/moreharts/babymonitor/service/MonitorService.java[m
+[1mindex 8697c78..2343278 100644[m
+[1m--- a/app/src/main/java/com/moreharts/babymonitor/service/MonitorService.java[m
+[1m+++ b/app/src/main/java/com/moreharts/babymonitor/service/MonitorService.java[m
+[36m@@ -16,12 +16,14 @@[m [mimport android.util.Log;[m
+ import android.widget.Toast;[m
+ [m
+ import java.io.ByteArrayInputStream;[m
+[32m+[m[32mimport java.lang.reflect.Array;[m
+[32m+[m[32mimport java.lang.reflect.InvocationTargetException;[m
+[32m+[m[32mimport java.lang.reflect.Method;[m
+ import java.security.KeyStore;[m
+ import java.security.cert.CertificateException;[m
+ import java.security.cert.CertificateFactory;[m
+ import java.security.cert.X509Certificate;[m
+ import java.util.ArrayList;[m
+[31m-import java.util.IllegalFormatException;[m
+ import java.util.List;[m
+ import java.util.Timer;[m
+ import java.util.TimerTask;[m
+[36m@@ -65,8 +67,15 @@[m [mpublic class MonitorService extends JumbleService {[m
+     private float mRxThreshold = DEFAULT_THRESHOLD; /** Threshold last heard from someone else */[m
+ [m
+     // People listening to us (they can also bind to the Jumble binder)[m
+[31m-    Handler mMainHandler = null;[m
+[31m-    private MonitorServiceListener mServiceListener = null;[m
+[32m+[m[32m    private Handler mMainHandler = null;[m
+[32m+[m[32m    private ArrayList<OnTxModeChangedListener> mTxModeHandlers = new ArrayList<OnTxModeChangedListener>();[m
+[32m+[m[32m    private ArrayList<OnMessageReceivedListener> mMessageHandlers = new ArrayList<OnMessageReceivedListener>();[m
+[32m+[m[32m    private ArrayList<OnVADThresholdChangedListener> mThresholdHandlers = new ArrayList<OnVADThresholdChangedListener>();[m
+[32m+[m
+[32m+[m[32m    // Notification[m
+[32m+[m[32m    private static final int ONGOING_NOTIFICATION_ID = 2324;[m
+[32m+[m[32m    Notification mNotification;[m
+[32m+[m[32m    NotificationManager mNotificationManager;[m
+ [m
+     // Jumble[m
+     private Server mConnectedInfo = null;[m
+[36m@@ -77,25 +86,7 @@[m [mpublic class MonitorService extends JumbleService {[m
+             Log.i(TAG, "Connected to server");[m
+ [m
+             rebuildNotification();[m
+[31m-[m
+[31m-            // Give Jumble a second to settle, then initialize fully[m
+[31m-            new Timer().schedule([m
+[31m-                    new TimerTask() {[m
+[31m-                        @Override[m
+[31m-                        public void run() {[m
+[31m-                            try {[m
+[31m-                                setDefaultMuteDeafenStatus();[m
+[31m-                                setDefaultTxMode();[m
+[31m-                                setVADThreshold(mThreshold);[m
+[31m-                                joinBabyMonitorChannel();[m
+[31m-                                sendChannelMessage(CMD_THRESHOLD);[m
+[31m-                            }[m
+[31m-                            catch (RemoteException e) {[m
+[31m-                                e.printStackTrace();[m
+[31m-                            }[m
+[31m-                        }[m
+[31m-                    }[m
+[31m-                    , 1000);[m
+[32m+[m[32m            ensureCorrectModeSettings();[m
+         }[m
+ [m
+         @Override[m
+[36m@@ -186,62 +177,66 @@[m [mpublic class MonitorService extends JumbleService {[m
+ [m
+         @Override[m
+         public void onMessageLogged(Message message) throws RemoteException {[m
+[31m-            Log.i(TAG, "Message: " + message.getMessage());[m
+[31m-[m
+[31m-            // Parse message[m
+[31m-            String[] parts = message.getMessage().trim().split(" ");[m
+[31m-            String cmd = parts[0];[m
+[31m-            Log.d(TAG, "Cmd: " + cmd + " part cnt: " + parts.length);[m
+[31m-[m
+[31m-            // Handle command messages[m
+[31m-            if(isTransmitterMode()) {[m
+[31m-                if(cmd.equals(CMD_THRESHOLD)) {[m
+[31m-                    // Threshold changes[m
+[31m-                    if(parts.length == 2) {[m
+[31m-                        try {[m
+[31m-                            float newThresh = Float.parseFloat(parts[1]);[m
+[31m-                            if (newThresh < 0)[m
+[31m-                                newThresh = 0f;[m
+[31m-                            if (newThresh > 1)[m
+[31m-                                newThresh = 1f;[m
+[31m-[m
+[31m-                            Log.i(TAG, "TX threshold set to " + newThresh);[m
+[31m-                            setVADThreshold(newThresh);[m
+[31m-                        }[m
+[31m-                        catch(IllegalFormatException e) {[m
+[31m-                            Log.e(TAG, "Ignoring threshold change request: " + e);[m
+[31m-                        }[m
+[31m-                    }[m
+[31m-[m
+[31m-                    // No matter what, return the current threshold setting[m
+[31m-                    sendThresholdResponse();[m
+[31m-                }[m
+[31m-                else if(cmd.equals(CMD_TX_PING)) {[m
+[31m-                    Log.i(TAG, "Ping");[m
+[31m-                    sendChannelMessage(RESP_PING);[m
+[31m-                }[m
+[31m-            }[m
+[31m-            else {[m
+[31m-                // Messages the receiver handles[m
+[31m-                if(cmd.equals(RESP_THRESHOLD)) {[m
+[31m-                    try {[m
+[31m-                        mThreshold = Float.parseFloat(parts[1]);[m
+[31m-                        if(mServiceListener != null)[m
+[31m-                            mServiceListener.onVADThresholdChange(mThreshold);[m
+[31m-                    }[m
+[31m-                    catch(IllegalFormatException e) {[m
+[31m-                        Log.i(TAG, "Ignoring threshold message: " + e.toString());[m
+[31m-                    }[m
+[31m-                }[m
+[31m-            }[m
+[32m+[m[32m            notifyMessageHandlers(message);[m
+         }[m
+     };[m
+ [m
+[31m-    public interface MonitorServiceListener {[m
+[31m-        public void onVADThresholdChange(float threshold);[m
+[31m-        public void onTXModeChange(boolean isTxMode);[m
+[32m+[m[32m    // Listeners[m
+[32m+[m[32m    public void addOnMessageHandler(OnMessageReceivedListener handler) {[m
+[32m+[m[32m        mMessageHandlers.add(handler);[m
+     }[m
+ [m
+[32m+[m[32m    public void removeOnMessageHandler(OnMessageReceivedListener handler) {[m
+[32m+[m[32m        mMessageHandlers.remove(handler);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void clearOnMessageHandlers() {[m
+[32m+[m[32m        mMessageHandlers.clear();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    private void notifyMessageHandlers(Message msg) {[m
+[32m+[m[32m        for(OnMessageReceivedListener listener : mMessageHandlers) {[m
+[32m+[m[32m            listener.onMessageReceived(this, msg);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void addOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {[m
+[32m+[m[32m        mThresholdHandlers.add(listener);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void removeOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {[m
+[32m+[m[32m        mThresholdHandlers.remove(listener);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void clearOnVADThresholdListeners() {[m
+[32m+[m[32m        mThresholdHandlers.clear();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    private void notifyVADThresholdListeners(float threshold) {[m
+[32m+[m[32m        for(OnVADThresholdChangedListener listener : mThresholdHandlers) {[m
+[32m+[m[32m            listener.onVADThresholdChanged(this, threshold);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void addOnTxModeChangedListener(OnTxModeChangedListener listener) {[m
+[32m+[m[32m        mTxModeHandlers.add(listener);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void removeOnTxModeChangedListener(OnTxModeChangedListener listener) {[m
+[32m+[m[32m        mTxModeHandlers.remove(listener);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void clearOnTxModeChangedListeners() {[m
+[32m+[m[32m        mTxModeHandlers.clear();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    private void notifyOnTxModeChangedListeners(boolean isTxMode) {[m
+[32m+[m[32m        for(OnTxModeChangedListener listener : mTxModeHandlers) {[m
+[32m+[m[32m            listener.onTXModeChanged(this, isTxMode);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Settings[m
+     public float getVADThreshold() {[m
+         return mThreshold;[m
+     }[m
+[36m@@ -253,8 +248,7 @@[m [mpublic class MonitorService extends JumbleService {[m
+         // If we are a receiver, just pass the info off to the tx[m
+         if(!isTransmitterMode()) {[m
+             mThreshold = threshold;[m
+[31m-            if(mServiceListener != null)[m
+[31m-                mServiceListener.onVADThresholdChange(threshold);[m
+[32m+[m[32m            notifyVADThresholdListeners(mThreshold);[m
+ [m
+             sendThreshold();[m
+ [m
+[36m@@ -264,9 +258,7 @@[m [mpublic class MonitorService extends JumbleService {[m
+         // Transmitter has to actually apply the change[m
+         if(threshold != mThreshold) {[m
+             mSettings.setThreshold(threshold);[m
+[31m-[m
+[31m-            if(mServiceListener != null)[m
+[31m-                mServiceListener.onVADThresholdChange(threshold);[m
+[32m+[m[32m            notifyVADThresholdListeners(mThreshold);[m
+         }[m
+ [m
+         mThreshold = threshold;[m
+[36m@@ -284,29 +276,30 @@[m [mpublic class MonitorService extends JumbleService {[m
+         }[m
+     }[m
+ [m
+[31m-    private void sendChannelMessage(String msg) throws RemoteException {[m
+[32m+[m[32m    // Channel messages[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Sends a message to the current channel[m
+[32m+[m[32m     * @param msg Message to send[m
+[32m+[m[32m     * @throws RemoteException[m
+[32m+[m[32m     */[m
+[32m+[m[32m    public void sendChannelMessage(String msg) throws RemoteException {[m
+         if(isConnected()) {[m
+             int channelId = getBinder().getSessionChannel().getId();[m
+             getBinder().sendChannelTextMessage(channelId, msg, false);[m
+         }[m
+     }[m
+ [m
+[31m-    private String buildCmd(String cmd, String param) {[m
+[31m-        return cmd + " " + param;[m
+[31m-    }[m
+[31m-[m
+[31m-    private void sendThreshold() throws RemoteException {[m
+[32m+[m[32m    public void sendThreshold() throws RemoteException {[m
+         sendChannelMessage(buildCmd(CMD_THRESHOLD, Float.toString(mThreshold)));[m
+     }[m
+ [m
+[31m-    private void sendThresholdResponse() throws RemoteException {[m
+[31m-        sendChannelMessage(buildCmd(RESP_THRESHOLD, Float.toString(mThreshold)));[m
+[32m+[m[32m    public void sendThresholdResponse() throws RemoteException {[m
+[32m+[m[32m        sendChannelMessage(MonitorService.RESP_THRESHOLD + " " + Float.toString(getVADThreshold()));[m
+     }[m
+ [m
+[31m-    // Notification[m
+[31m-    private static final int ONGOING_NOTIFICATION_ID = 2324;[m
+[31m-    Notification mNotification;[m
+[31m-    NotificationManager mNotificationManager;[m
+[32m+[m[32m    private String buildCmd(String cmd, String param) {[m
+[32m+[m[32m        return cmd + " " + param;[m
+[32m+[m[32m    }[m
+ [m
+     /**[m
+      * Joins the BabyMonitor channel on the current service, if one exists[m
+[36m@@ -330,8 +323,34 @@[m [mpublic class MonitorService extends JumbleService {[m
+     }[m
+ [m
+     /**[m
+[31m-     * Sets Jumble to muted/defeaned based on whether we are a client or monitor[m
+[32m+[m[32m     * Ensures that everything is set the correct way for the mode we are in.[m
+[32m+[m[32m     * Will try in the background until everything succeeds.[m
+      */[m
+[32m+[m[32m    public void ensureCorrectModeSettings() {[m
+[32m+[m[32m        if(!isConnected())[m
+[32m+[m[32m            return;[m
+[32m+[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            setDefaultMuteDeafenStatus();[m
+[32m+[m[32m            setDefaultTxMode();[m
+[32m+[m[32m            setVADThreshold(mThreshold);[m
+[32m+[m[32m            joinBabyMonitorChannel();[m
+[32m+[m[32m        }[m
+[32m+[m[32m        catch (RemoteException e) {[m
+[32m+[m[32m            e.printStackTrace();[m
+[32m+[m
+[32m+[m[32m            // Try again in 1 second[m
+[32m+[m[32m            new Timer().schedule([m
+[32m+[m[32m                    new TimerTask() {[m
+[32m+[m[32m                        @Override[m
+[32m+[m[32m                        public void run() {[m
+[32m+[m[32m                            ensureCorrectModeSettings();[m
+[32m+[m[32m                        }[m
+[32m+[m[32m                    }[m
+[32m+[m[32m                    , 1000);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+     public void setDefaultMuteDeafenStatus() throws RemoteException {[m
+         if(mIsTransmitter) {[m
+             Log.i(TAG, "Broadcasting ourselves");[m
+[36m@@ -347,7 +366,7 @@[m [mpublic class MonitorService extends JumbleService {[m
+         getBinder().setSelfMuteDeafState(true, true);[m
+     }[m
+ [m
+[31m-    public void setDefaultTxMode() throws RemoteException {[m
+[32m+[m[32m    private void setDefaultTxMode() throws RemoteException {[m
+         if(mIsTransmitter) {[m
+             Log.i(TAG, "Setting to voice activity mode");[m
+             getBinder().setTransmitMode(Constants.TRANSMIT_VOICE_ACTIVITY);[m
+[36m@@ -358,6 +377,7 @@[m [mpublic class MonitorService extends JumbleService {[m
+         }[m
+     }[m
+ [m
+[32m+[m[32m    // Misc utilities to reach into Jumble[m
+     public String getHost() {[m
+         try {[m
+             if (isConnected())[m
+[36m@@ -393,37 +413,10 @@[m [mpublic class MonitorService extends JumbleService {[m
+             return;[m
+ [m
+         mIsTransmitter = isTx;[m
+[31m-        if(mServiceListener != null)[m
+[31m-            mServiceListener.onTXModeChange(mIsTransmitter);[m
+[31m-[m
+[31m-        if(isConnected()) {[m
+[31m-            // Ensure all our mode info is correct[m
+[31m-            try {[m
+[31m-                setDefaultMuteDeafenStatus();[m
+[31m-                setDefaultTxMode();[m
+[31m-[m
+[31m-                // Get/send current threshold level[m
+[31m-                if(mIsTransmitter) {[m
+[31m-                    sendThresholdResponse();[m
+[31m-                }[m
+[31m-                else {[m
+[31m-                    sendChannelMessage(CMD_THRESHOLD);[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (RemoteException e) {[m
+[31m-                e.printStackTrace();[m
+[31m-            }[m
+[32m+[m[32m        notifyOnTxModeChangedListeners(isTx);[m
+ [m
+[31m-            // Disconnect and reconnect to get a new user name and make sure everything refreshes[m
+[31m-            /*try {[m
+[31m-                Server currentServer = getBinder().getConnectedServer();[m
+[31m-                disconnect();[m
+[31m-                connect();[m
+[31m-            }[m
+[31m-            catch(RemoteException e) {[m
+[31m-                e.printStackTrace();[m
+[31m-            }*/[m
+[31m-        }[m
+[32m+[m[32m        // Ensure all our mode info is correct[m
+[32m+[m[32m        ensureCorrectModeSettings();[m
+     }[m
+ [m
+     @Override[m
+[36m@@ -445,6 +438,10 @@[m [mpublic class MonitorService extends JumbleService {[m
+             e.printStackTrace();[m
+         }[m
+ [m
+[32m+[m[32m        // Add listeners[m
+[32m+[m[32m        addOnMessageHandler(new TxTextMessageReceivedListener());[m
+[32m+[m[32m        addOnMessageHandler(new RxTextMessageReceivedListener());[m
+[32m+[m
+         // Apply settings appropriately[m
+         try {[m
+             setTransmitterMode(!mSettings.getIsRxMode());[m
+[36m@@ -501,10 +498,6 @@[m [mpublic class MonitorService extends JumbleService {[m
+         return mBinder;[m
+     }[m
+ [m
+[31m-    public void setServiceListener(MonitorServiceListener listener) {[m
+[31m-        mServiceListener = listener;[m
+[31m-    }[m
+[31m-[m
+     public void connect(String host, int port, String user) {[m
+         Server server = new Server(2000, "manual", host, port, user, "");[m
+ [m
+[36m@@ -636,4 +629,16 @@[m [mpublic class MonitorService extends JumbleService {[m
+     public static void startMonitor(Context context) {[m
+         context.startService(new Intent(context, MonitorService.class));[m
+     }[m
+[32m+[m
+[32m+[m[32m    public interface OnMessageReceivedListener {[m
+[32m+[m[32m        public void onMessageReceived(MonitorService service, Message msg);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public interface OnVADThresholdChangedListener {[m
+[32m+[m[32m        public void onVADThresholdChanged(MonitorService service, float newThreshold);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public interface OnTxModeChangedListener {[m
+[32m+[m[32m        public void onTXModeChanged(MonitorService service, boolean isTxMode);[m
+[32m+[m[32m    }[m
+ }[m
