@@ -73,11 +73,11 @@ public class MonitorService extends JumbleService {
     private ArrayList<OnTxModeChangedListener> mTxModeHandlers = new ArrayList<OnTxModeChangedListener>();
     private ArrayList<OnMessageReceivedListener> mMessageHandlers = new ArrayList<OnMessageReceivedListener>();
     private ArrayList<OnVADThresholdChangedListener> mThresholdHandlers = new ArrayList<OnVADThresholdChangedListener>();
+    private ArrayList<OnConnectionStatusListener> mConnectionHandlers = new ArrayList<OnConnectionStatusListener>();
+    private ArrayList<OnUserStateListener> mUserHandlers = new ArrayList<OnUserStateListener>();
 
     // Notification
-    private static final int ONGOING_NOTIFICATION_ID = 2324;
-    Notification mNotification;
-    NotificationManager mNotificationManager;
+    NotificationDisplay mNotification = null;
 
     // Jumble
     private Server mConnectedInfo = null;
@@ -86,21 +86,20 @@ public class MonitorService extends JumbleService {
         @Override
         public void onConnected() throws RemoteException {
             Log.i(TAG, "Connected to server");
-
-            rebuildNotification();
+            notifyOnConnectionStatusListenerConnected();
             ensureCorrectModeSettings();
         }
 
         @Override
         public void onDisconnected() throws RemoteException {
             Log.i(TAG, "Disconnected");
-            rebuildNotification();
+            notifyOnConnectionStatusListenerDisconnected();
         }
 
         @Override
         public void onConnectionError(String message, boolean reconnecting) throws RemoteException {
             Log.i(TAG, "Connection error: " + message);
-            rebuildNotification();
+            notifyOnConnectionStatusListenerConnectionError(message, reconnecting);
 
             mMainHandler.post(new Runnable() {
                 @Override
@@ -146,17 +145,18 @@ public class MonitorService extends JumbleService {
 
         @Override
         public void onUserStateUpdated(User user) throws RemoteException {
-            Log.i(TAG, "user state updated: " + user.getName());
+            Log.i(TAG, "User state updated: " + user.getName());
         }
 
         @Override
         public void onUserTalkStateUpdated(User user) throws RemoteException {
-            Log.i(TAG, "user talk: " + user.getName());
+            Log.i(TAG, "User talk: " + user.getName());
+            notifyOnUserStateListenerTalking(user);
         }
 
         @Override
         public void onUserJoinedChannel(User user, Channel newChannel, Channel oldChannel) throws RemoteException {
-            Log.i(TAG, "user joined channel: " + user.getName());
+            Log.i(TAG, "User joined channel: " + user.getName());
 
             // Make sure we send the current status every time someone joins
             if(mIsTransmitter) {
@@ -182,61 +182,6 @@ public class MonitorService extends JumbleService {
             notifyMessageHandlers(message);
         }
     };
-
-    // Listeners
-    public void addOnMessageHandler(OnMessageReceivedListener handler) {
-        mMessageHandlers.add(handler);
-    }
-
-    public void removeOnMessageHandler(OnMessageReceivedListener handler) {
-        mMessageHandlers.remove(handler);
-    }
-
-    public void clearOnMessageHandlers() {
-        mMessageHandlers.clear();
-    }
-
-    private void notifyMessageHandlers(Message msg) {
-        for(OnMessageReceivedListener listener : mMessageHandlers) {
-            listener.onMessageReceived(this, msg);
-        }
-    }
-
-    public void addOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {
-        mThresholdHandlers.add(listener);
-    }
-
-    public void removeOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {
-        mThresholdHandlers.remove(listener);
-    }
-
-    public void clearOnVADThresholdListeners() {
-        mThresholdHandlers.clear();
-    }
-
-    private void notifyVADThresholdListeners(float threshold) {
-        for(OnVADThresholdChangedListener listener : mThresholdHandlers) {
-            listener.onVADThresholdChanged(this, threshold);
-        }
-    }
-
-    public void addOnTxModeChangedListener(OnTxModeChangedListener listener) {
-        mTxModeHandlers.add(listener);
-    }
-
-    public void removeOnTxModeChangedListener(OnTxModeChangedListener listener) {
-        mTxModeHandlers.remove(listener);
-    }
-
-    public void clearOnTxModeChangedListeners() {
-        mTxModeHandlers.clear();
-    }
-
-    private void notifyOnTxModeChangedListeners(boolean isTxMode) {
-        for(OnTxModeChangedListener listener : mTxModeHandlers) {
-            listener.onTXModeChanged(this, isTxMode);
-        }
-    }
 
     // Settings
     public float getVADThreshold() {
@@ -436,9 +381,8 @@ public class MonitorService extends JumbleService {
 
         // Settings
         mSettings = Settings.getInstance(this);
-        mNotificationManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Observer
+        // Jumble Observer
         super.onCreate();
         try {
             getBinder().registerObserver(mJumbleObserver);
@@ -448,6 +392,7 @@ public class MonitorService extends JumbleService {
         }
 
         // Add listeners
+        mNotification = new NotificationDisplay(this);
         addOnMessageHandler(new TxTextMessageReceivedListener());
         addOnMessageHandler(new RxTextMessageReceivedListener());
 
@@ -473,7 +418,7 @@ public class MonitorService extends JumbleService {
         super.onStartCommand(intent, flags, startId);
 
         // I WILL NEVER DIE
-        runInForeground();
+        mNotification.runInForeground();
         return START_REDELIVER_INTENT;
     }
 
@@ -586,52 +531,7 @@ public class MonitorService extends JumbleService {
         }
     }
 
-    private void runInForeground() {
-        // Run in foreground so we're never killed
-        rebuildNotification();
-        startForeground(ONGOING_NOTIFICATION_ID, mNotification);
-    }
-
-    private Notification rebuildNotification() {
-        // Use notification to display number of people monitoring
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-
-        if(mIsTransmitter) {
-            builder.setContentTitle("Monitor - Transmitter");
-        }
-        else {
-            builder.setContentTitle("Monitor - Receiver");
-        }
-
-        if(isConnected()) {
-            builder.setContentText("Connected");
-        }
-        else if(isReconnecting()) {
-            builder.setContentText("Reconnecting");
-        }
-        else {
-            builder.setContentText("Idle");
-        }
-
-        builder.setSmallIcon(R.drawable.notification_icon);
-        builder.setOngoing(true);
-
-        // Open status activity on click
-        // FLAG_CANCEL_CURRENT ensures that the extra always gets sent.
-        Intent statusIntent = statusIntent = new Intent(this, ClientStatus.class);
-        statusIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, statusIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-        builder.setContentIntent(pendingIntent);
-
-        // Control buttons
-        //builder.addAction();
-
-        mNotification = builder.build();
-        mNotificationManager.notify(ONGOING_NOTIFICATION_ID, mNotification);
-
-        return mNotification;
-    }
-
+    // Utilities to start and stop monitor
     public static void killMonitor(Context context) {
         // If running, ends the background monitor service
         context.stopService(new Intent(context, MonitorService.class));
@@ -641,6 +541,95 @@ public class MonitorService extends JumbleService {
         context.startService(new Intent(context, MonitorService.class));
     }
 
+    // Listeners
+    // Text messages
+    public void addOnMessageHandler(OnMessageReceivedListener handler) {
+        mMessageHandlers.add(handler);
+    }
+
+    public void removeOnMessageHandler(OnMessageReceivedListener handler) {
+        mMessageHandlers.remove(handler);
+    }
+
+    private void notifyMessageHandlers(Message msg) {
+        for(OnMessageReceivedListener listener : mMessageHandlers) {
+            listener.onMessageReceived(this, msg);
+        }
+    }
+
+    // Threshold listeners
+    public void addOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {
+        mThresholdHandlers.add(listener);
+    }
+
+    public void removeOnVADThresholdChangedListener(OnVADThresholdChangedListener listener) {
+        mThresholdHandlers.remove(listener);
+    }
+
+    private void notifyVADThresholdListeners(float threshold) {
+        for(OnVADThresholdChangedListener listener : mThresholdHandlers) {
+            listener.onVADThresholdChanged(this, threshold);
+        }
+    }
+
+    // Tx Mode Change
+    public void addOnTxModeChangedListener(OnTxModeChangedListener listener) {
+        mTxModeHandlers.add(listener);
+    }
+
+    public void removeOnTxModeChangedListener(OnTxModeChangedListener listener) {
+        mTxModeHandlers.remove(listener);
+    }
+
+    private void notifyOnTxModeChangedListeners(boolean isTxMode) {
+        for(OnTxModeChangedListener listener : mTxModeHandlers) {
+            listener.onTXModeChanged(this, isTxMode);
+        }
+    }
+
+    // Connection status
+    public void addOnConnectionStatusListener(OnConnectionStatusListener listener) {
+        mConnectionHandlers.add(listener);
+    }
+
+    public void removeOnConnectionStatusListener(OnConnectionStatusListener listener) {
+        mConnectionHandlers.remove(listener);
+    }
+
+    private void notifyOnConnectionStatusListenerConnected() {
+        for(OnConnectionStatusListener listener : mConnectionHandlers) {
+            listener.onConnected(this);
+        }
+    }
+
+    private void notifyOnConnectionStatusListenerDisconnected() {
+        for(OnConnectionStatusListener listener : mConnectionHandlers) {
+            listener.onDisconnected(this);
+        }
+    }
+
+    private void notifyOnConnectionStatusListenerConnectionError(String msg, boolean reconnecting) {
+        for(OnConnectionStatusListener listener : mConnectionHandlers) {
+            listener.onConnectionError(this, msg, reconnecting);
+        }
+    }
+
+    // User state
+    public void addOnUserStateListener(OnUserStateListener listener) {
+        mUserHandlers.add(listener);
+    }
+
+    public void removeOnUserStateListener(OnUserStateListener listener) {
+        mUserHandlers.remove(listener);
+    }
+
+    private void notifyOnUserStateListenerTalking(User user) {
+        for(OnUserStateListener listener : mUserHandlers) {
+            listener.onUserTalk(this, user);
+        }
+    }
+
+    // Event listener interfaces
     public interface OnMessageReceivedListener {
         public void onMessageReceived(MonitorService service, Message msg);
     }
@@ -651,5 +640,15 @@ public class MonitorService extends JumbleService {
 
     public interface OnTxModeChangedListener {
         public void onTXModeChanged(MonitorService service, boolean isTxMode);
+    }
+
+    public interface OnConnectionStatusListener {
+        public void onConnected(MonitorService service);
+        public void onDisconnected(MonitorService service);
+        public void onConnectionError(MonitorService service, String message, boolean reconnecting);
+    }
+
+    public interface OnUserStateListener {
+        public void onUserTalk(MonitorService service, User user);
     }
 }
