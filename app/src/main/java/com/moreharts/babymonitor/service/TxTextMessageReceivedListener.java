@@ -66,5 +66,18 @@ public class TxTextMessageReceivedListener implements MonitorService.OnMessageRe
                 e.printStackTrace();
             }
         }
+        else if(cmd.equals(MonitorService.CMD_NOISE_STATE)) {
+            try {
+                Log.i(TAG, "Noise state request");
+                if(service.isThereNoise())
+                    service.sendChannelMessage(MonitorService.RESP_NOISE_ON);
+                else
+                    service.sendChannelMessage(MonitorService.RESP_NOISE_OFF);
+            }
+            catch(RemoteException e) {
+                Log.e(TAG, "Unable to send noise state response");
+                e.printStackTrace();
+            }
+        }
     }
 }

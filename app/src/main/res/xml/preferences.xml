@@ -1,17 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <ListPreference
-        android:key="pref_defaultMode"
-        android:title="@string/pref_monitorMode"
-        android:dialogTitle="@string/pref_monitorMode"
-        android:entries="@array/pref_monitorMode_entries"
-        android:entryValues="@array/pref_monitorMode_values"
-        android:defaultValue="@string/pref_monitorMode_default" />
-    <CheckBoxPreference
-        android:key="pref_runOnStartup"
-        android:title="@string/pref_runOnStartup"
-        android:summaryOn="@string/pref_runOnStartupOn_summary"
-        android:summaryOff="@string/pref_runOnStartupOff_summary"
-        android:defaultValue="true" />
+    <SwitchPreference
+        android:key="isTransmitterMode"
+        android:title="Monitor Mode"
+        android:summaryOn="Transmitter"
+        android:summaryOff="Receiver"
+        android:defaultValue="false" />
+
+    <PreferenceCategory
+        android:title="Mumble">
+
+        <com.moreharts.babymonitor.preferences.ServerSelectionDialogPreference
+            android:key="mumbleHostSettings"
+            android:title="Server"
+            android:summary="Host"
+            android:dialogTitle="Server"
+            android:persistent="false" />
+
+        <EditTextPreference
+            android:key="mumbleUser"
+            android:title="Username"
+            android:summary="Mumble username"
+            android:dialogTitle="Mumble username" />
+
+        <EditTextPreference
+            android:key="mumbleChannel"
+            android:title="Channel"
+            android:summary="Join X on connect"
+            android:dialogTitle="Mumble Channel" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Connection"
+        android:key="connection">
+
+        <SwitchPreference
+            android:key="runOnBoot"
+            android:title="@string/pref_runOnStartup"
+            android:summaryOn="@string/pref_runOnStartupOn_summary"
+            android:summaryOff="@string/pref_runOnStartupOff_summary"
+            android:defaultValue="true" />
+
+        <!-- TODO: This could be a setting that allows "None," "Notification only," or "All?" -->
+        <SwitchPreference
+            android:key="allowCellular"
+            android:title="Data Usage"
+            android:summaryOn="Cellular data allowed"
+            android:summaryOff="Wifi Only"
+            android:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Notifications">
+
+        <SwitchPreference
+            android:key="vibrationOn"
+            android:title="Vibrate"
+            android:summaryOn="Vibrate on noise"
+            android:summaryOff="No vibration on noise"
+            android:defaultValue="true" />
+
+        <SwitchPreference
+            android:key="soundOn"
+            android:title="Notification Sound Override"
+            android:summaryOn="Play X on noise"
+            android:summaryOff="Play detected audio"
+            android:defaultValue="false" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

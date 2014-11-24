@@ -75,6 +75,11 @@ public class ManualServerFragment extends DialogFragment {
     }
 
     @Override
+    public void onCreate(Bundle savedInstance) {
+        super.onCreate(savedInstance);
+    }
+
+    @Override
     public Dialog onCreateDialog(Bundle savedInstance) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 

@@ -1,24 +1,18 @@
 package com.moreharts.babymonitor.service;
 
-import android.app.PendingIntent;
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.Context;
+import android.media.AudioManager;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Binder;
 import android.os.Looper;
 import android.os.RemoteException;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -29,7 +23,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import com.moreharts.babymonitor.R;
-import com.moreharts.babymonitor.ui.ClientStatus;
 import com.moreharts.babymonitor.preferences.BabyTrustStore;
 import com.moreharts.babymonitor.preferences.Settings;
 import com.morlunk.jumble.Constants;
@@ -55,16 +48,22 @@ public class MonitorService extends JumbleService {
     public static final String CMD_RESET = "reset";
     public static final String CMD_THRESHOLD = "threshold";
     public static final String CMD_TX_PING = "txping";
+    public static final String CMD_NOISE_STATE = "noise";
 
     public static final String RESP_PING = "txpong";
     public static final String RESP_THRESHOLD = "threshold_is";
+    public static final String RESP_NOISE_ON = "noise_on";
+    public static final String RESP_NOISE_OFF = "noise_off";
 
     // Service info
     private final IBinder mBinder = new LocalBinder();
     private Settings mSettings = null;
 
+    private int mAudioStream = AudioManager.STREAM_MUSIC;
     private boolean mIsTransmitter = false;
     private float mThreshold = DEFAULT_THRESHOLD;
+
+    private NoiseTracker mNoiseTracker = null;
 
     private Timer mTimer = new Timer();
 
@@ -240,8 +239,13 @@ public class MonitorService extends JumbleService {
      */
     public void sendChannelMessage(String msg) throws RemoteException {
         if(isConnected()) {
-            int channelId = getBinder().getSessionChannel().getId();
-            getBinder().sendChannelTextMessage(channelId, msg, false);
+            try {
+                int channelId = getBinder().getSessionChannel().getId();
+                getBinder().sendChannelTextMessage(channelId, msg, false);
+            }
+            catch(NullPointerException e) {
+                Log.d(TAG, "Unable to send command '" + msg + "': " + e);
+            }
         }
     }
 
@@ -255,6 +259,11 @@ public class MonitorService extends JumbleService {
 
     private String buildCmd(String cmd, String param) {
         return cmd + " " + param;
+    }
+
+    // Access helper classes
+    public NoiseTracker getNoiseTracker() {
+        return mNoiseTracker;
     }
 
     /**
@@ -306,18 +315,15 @@ public class MonitorService extends JumbleService {
     }
 
     public void setDefaultMuteDeafenStatus() throws RemoteException {
-        if(mIsTransmitter) {
-            Log.i(TAG, "Broadcasting ourselves");
-            getBinder().setSelfMuteDeafState(false, false);
-        }
-        else {
-            Log.i(TAG, "Muting ourselves");
-            getBinder().setSelfMuteDeafState(true, false);
-        }
+        getBinder().setSelfMuteDeafState(!mIsTransmitter, false);
     }
 
     public void setDeafen() throws RemoteException {
-        getBinder().setSelfMuteDeafState(true, true);
+        setDeafen(true);
+    }
+
+    public void setDeafen(boolean deafen) throws RemoteException {
+        getBinder().setSelfMuteDeafState(false, deafen);
     }
 
     private void setDefaultTxMode() throws RemoteException {
@@ -392,13 +398,14 @@ public class MonitorService extends JumbleService {
         }
 
         // Add listeners
+        mNoiseTracker = new NoiseTracker(this);
         mNotification = new NotificationDisplay(this);
         addOnMessageHandler(new TxTextMessageReceivedListener());
         addOnMessageHandler(new RxTextMessageReceivedListener());
 
         // Apply settings appropriately
         try {
-            setTransmitterMode(!mSettings.getIsRxMode());
+            setTransmitterMode(mSettings.getIsTxMode());
             setVADThreshold(mSettings.getThreshold());
 
             if(mSettings.getStartOnBoot() && mSettings.getMumbleHost() != null) {
@@ -480,6 +487,8 @@ public class MonitorService extends JumbleService {
                     add(MonitorService.MUMBLE_TOKEN);
                 }});
 
+                connectIntent.putExtra(EXTRAS_AUDIO_STREAM, mAudioStream);
+
                 connectIntent.putExtra(JumbleService.EXTRAS_TRUST_STORE, BabyTrustStore.getTrustStorePath(getApplicationContext()));
                 connectIntent.putExtra(JumbleService.EXTRAS_TRUST_STORE_PASSWORD, BabyTrustStore.getTrustStorePassword());
                 connectIntent.putExtra(JumbleService.EXTRAS_TRUST_STORE_FORMAT, BabyTrustStore.getTrustStoreFormat());
@@ -529,6 +538,15 @@ public class MonitorService extends JumbleService {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Returns true if there has been noise heard in the past few seconds,
+     * as determined by the NoiseTracker
+     * @return true if noise has been heard lately, false otherwise
+     */
+    public boolean isThereNoise() {
+        return mNoiseTracker.isThereNoise();
     }
 
     // Utilities to start and stop monitor
@@ -650,5 +668,10 @@ public class MonitorService extends JumbleService {
 
     public interface OnUserStateListener {
         public void onUserTalk(MonitorService service, User user);
+    }
+
+    public interface OnNoiseListener {
+        public void onNoiseStart(MonitorService service);
+        public void onNoiseStop(MonitorService service);
     }
 }

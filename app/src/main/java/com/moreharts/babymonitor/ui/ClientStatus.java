@@ -106,6 +106,9 @@ public class ClientStatus extends FragmentActivity implements
             // Save the host and port for future use
             mSettings.setMumbleHost(mService.getHost());
             mSettings.setMumblePort(mService.getPort());
+
+            // Ensure the mute status matches our button
+            mService.setDeafen(mClientControlFragment.getMute());
         }
 
         @Override
@@ -138,13 +141,13 @@ public class ClientStatus extends FragmentActivity implements
     public void showClientControlFragment() {
         FragmentTransaction trans = mFragmentMgr.beginTransaction();
         trans.show(mClientControlFragment);
-        trans.commit();
+        trans.commitAllowingStateLoss();
     }
 
     public void hideClientControlFragment() {
         FragmentTransaction trans = mFragmentMgr.beginTransaction();
         trans.hide(mClientControlFragment);
-        trans.commit();
+        trans.commitAllowingStateLoss();
     }
 
     @Override
@@ -217,12 +220,7 @@ public class ClientStatus extends FragmentActivity implements
         mSettings = Settings.getInstance(this);
 
         if(mMumbleUserName == null) {
-            // TODO get client user name from settings
             mMumbleUserName = mSettings.getUserName();
-            if(mMumbleUserName == null) {
-                mMumbleUserName = MonitorService.MUMBLE_USER_START + Math.abs(new Random().nextInt());
-                mSettings.setUserName(mMumbleUserName);
-            }
         }
 
         // Start the discoverer
@@ -329,14 +327,14 @@ public class ClientStatus extends FragmentActivity implements
             case R.id.switch_to_rx:
                 // Make connection a receiver
                 mService.setTransmitterMode(false);
-                mSettings.setRxMode(true);
+                mSettings.setTxMode(false);
                 mStatusList.forceRefresh();
                 refreshOptionsMenuVisibility();
                 return true;
             case R.id.switch_to_tx:
                 // Make connection a transmitter
                 mService.setTransmitterMode(true);
-                mSettings.setRxMode(false);
+                mSettings.setTxMode(true);
                 mStatusList.forceRefresh();
                 refreshOptionsMenuVisibility();
                 return true;

@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.preference.DialogPreference;
+import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.app.Fragment;
 import android.util.Log;
@@ -25,22 +27,11 @@ public class GlobalSettingsFragment extends PreferenceFragment
         implements SharedPreferences.OnSharedPreferenceChangeListener {
     public static final String TAG = "GlobalSettingsFragment";
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private Settings mSettings;
 
     private OnFragmentInteractionListener mListener;
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment GlobalSettingsFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static GlobalSettingsFragment newInstance(String param1, String param2) {
+    public static GlobalSettingsFragment newInstance() {
         GlobalSettingsFragment fragment = new GlobalSettingsFragment();
         Bundle args = new Bundle();
         fragment.setArguments(args);
@@ -54,7 +45,22 @@ public class GlobalSettingsFragment extends PreferenceFragment
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.preferences);
-        getPreferenceManager().getSharedPreferences().registerOnSharedPreferenceChangeListener(this); // TODO need to unregister?
+
+        mSettings = Settings.getInstance(getActivity());
+
+        fixPreferenceSummaries();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        getPreferenceManager().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        getPreferenceManager().getSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
     }
 
     @Override
@@ -76,12 +82,31 @@ public class GlobalSettingsFragment extends PreferenceFragment
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if(key.equals("pref_defaultMode")) {
-            Preference modePref = findPreference(key);
-            // Set summary to be the user-description for the selected value
-            modePref.setSummary(sharedPreferences.getString(key, ""));
-            Log.d(TAG, "Changing pref summary");
+        fixPreferenceSummaries();
+    }
+
+    /**
+     * Ensures all preference summaries reflect their current values
+     */
+    public void fixPreferenceSummaries() {
+        // Server
+        DialogPreference fullHostPref = (DialogPreference)findPreference("mumbleHostSettings");
+        String host = mSettings.getMumbleHost();
+        int port = mSettings.getMumblePort();
+        if(host != null) {
+            fullHostPref.setSummary(host + ":" + port);
         }
+        else {
+            fullHostPref.setSummary("Unset");
+        }
+
+        // User name
+        EditTextPreference userPref = (EditTextPreference)findPreference(Settings.PREF_USERNAME);
+        userPref.setSummary(mSettings.getUserName());
+
+        // Channel
+        EditTextPreference channelPref = (EditTextPreference)findPreference(Settings.PREF_CHANNEL);
+        channelPref.setSummary(mSettings.getMumbleChannel());
     }
 
     /**
@@ -95,8 +120,7 @@ public class GlobalSettingsFragment extends PreferenceFragment
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        public void onFragmentInteraction(Uri uri);
+
     }
 
 }

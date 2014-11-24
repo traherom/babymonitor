@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.util.Random;
 
 /**
  * Preference manager
@@ -20,8 +21,9 @@ public class Settings {
     public static final String PREF_SETUP_COMPLETE = "setupComplete";
     public static final String PREF_START_ON_BOOT = "runOnBoot";
     public static final String PREF_CERT = "certificatePath";
-    public static final String PREF_MODE = "isClientMode";
+    public static final String PREF_MODE = "isTransmitterMode";
     public static final String PREF_HOST = "mumbleHost";
+    public static final String PREF_CHANNEL = "mumbleChannel";
     public static final String PREF_PORT = "mumblePort";
     public static final String PREF_USERNAME = "mumbleUser";
     public static final String PREF_THRESHOLD = "defaultSensitivity";
@@ -68,23 +70,39 @@ public class Settings {
         editor.apply();
     }
 
-    public boolean getIsRxMode() {
+    public boolean getIsTxMode() {
         return preferences.getBoolean(PREF_MODE, true);
     }
 
-    public void setRxMode(boolean isRx) {
+    public void setTxMode(boolean isTx) {
         SharedPreferences.Editor editor = preferences.edit();
-        editor.putBoolean(PREF_MODE, isRx);
+        editor.putBoolean(PREF_MODE, isTx);
         editor.apply();
     }
 
     public String getUserName() {
-        return preferences.getString(PREF_USERNAME, null);
+        String user = preferences.getString(PREF_USERNAME, null);
+        if(user == null) {
+            user = MonitorService.MUMBLE_USER_START + Math.abs(new Random().nextInt());
+            setUserName(user);
+        }
+
+        return user;
     }
 
     public void setUserName(String name) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString(PREF_USERNAME, name);
+        editor.apply();
+    }
+
+    public String getMumbleChannel() {
+        return preferences.getString(PREF_CHANNEL, MonitorService.PREF_MUMBLE_CHANNEL);
+    }
+
+    public void setMumbleChannel(String channel) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString(PREF_CHANNEL, channel);
         editor.apply();
     }
 

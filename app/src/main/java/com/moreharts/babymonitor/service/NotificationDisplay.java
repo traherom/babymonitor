@@ -5,15 +5,11 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.os.SystemClock;
+import android.graphics.Color;
 import android.support.v4.app.NotificationCompat;
 
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.ui.ClientStatus;
-import com.morlunk.jumble.model.User;
-
-import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Manages MonitorService notifications
@@ -21,91 +17,80 @@ import java.util.TimerTask;
  */
 public class NotificationDisplay {
     public static final int ONGOING_NOTIFICATION_ID = 2324;
-    public static final long DEFAULT_NOISE_TIMEOUT_LENGTH = 10 * 1000;
+    public static final int NOISE_NOTIFICATION_ID = 2325;
+
+    public static final long[] NOTIFICATION_VIBRATION_PATTERN = {500,100,100,100,100,100};
 
     private MonitorService mService = null;
 
-    private Notification mNotification;
+    private Notification mServiceNotification = null;
+    private Notification mNoiseNotification = null;
     private NotificationManager mNotificationManager;
-
-    // Perhaps get this from settings?
-    private long mNoiseTimeoutLength = DEFAULT_NOISE_TIMEOUT_LENGTH;
-
-    /**
-     * Track when a user is talking and display a special note in the notification. Only consider
-     * a user done mNoiseTimeoutLength seconds after the last time they were heard
-     */
-    private NoiseTimeoutListener mUserStateListener = new NoiseTimeoutListener();
-    private class NoiseTimeoutListener extends TimerTask implements MonitorService.OnUserStateListener {
-        private long mLastNoiseHeard = 0;
-        private boolean mNotificationShowsNoise = false;
-        private boolean mThereIsNoise = false;
-
-        Timer mTimer = new Timer();
-
-        public NoiseTimeoutListener() {
-            mTimer.schedule(this, 1000, 5000);
-        }
-
-        public boolean isThereNoise() {
-            return mThereIsNoise;
-        }
-
-        @Override
-        public void run() {
-            // Determine if there is a change to the noise state and refresh notification
-            // It would be more accurate to refresh the notification immediately in onUserTalk
-            // for when noise is heard, but it would lead to a lot of unnecessary rebuilding
-            long diff = SystemClock.elapsedRealtime() - mLastNoiseHeard;
-            boolean isNoise = (diff < mNoiseTimeoutLength);
-
-            if(isNoise != mThereIsNoise) {
-                // We're hearing noise and we weren't before OR
-                // we have no noise and we were before. IE, there was
-                // a change, so rebuild
-                mThereIsNoise = isNoise;
-                rebuildNotification();
-            }
-        }
-
-        @Override
-        public void onUserTalk(MonitorService service, User user) {
-            mLastNoiseHeard = SystemClock.elapsedRealtime();
-        }
-    }
 
     public NotificationDisplay(MonitorService service) {
         mService = service;
         mNotificationManager = (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
 
+        mService.addOnTxModeChangedListener(new MonitorService.OnTxModeChangedListener() {
+            @Override
+            public void onTXModeChanged(MonitorService service, boolean isTxMode) {
+                buildAndDisplayNotification();
+            }
+        });
+
         mService.addOnConnectionStatusListener(new MonitorService.OnConnectionStatusListener() {
             @Override
             public void onConnected(MonitorService service) {
-                rebuildNotification();
+                buildAndDisplayNotification();
             }
 
             @Override
             public void onDisconnected(MonitorService service) {
-                rebuildNotification();
+                buildAndDisplayNotification();
             }
 
             @Override
             public void onConnectionError(MonitorService service, String message, boolean reconnecting) {
-                rebuildNotification();
+                buildAndDisplayNotification();
             }
         });
 
-        mService.addOnUserStateListener(mUserStateListener);
+        mService.getNoiseTracker().addOnNoiseListener(new MonitorService.OnNoiseListener() {
+            @Override
+            public void onNoiseStart(MonitorService service) {
+                buildAndDisplayNotification();
+            }
+
+            @Override
+            public void onNoiseStop(MonitorService service) {
+                buildAndDisplayNotification();
+            }
+        });
     }
 
     public void runInForeground() {
         // Run in foreground so we're never killed
-        rebuildNotification();
-        mService.startForeground(ONGOING_NOTIFICATION_ID, mNotification);
+        buildAndDisplayNotification();
+        mService.startForeground(ONGOING_NOTIFICATION_ID, mServiceNotification);
     }
 
-    private Notification rebuildNotification() {
-        // Use notification to display number of people monitoring
+    /**
+     * Utility to actually build correct notifications for mode (tx/rx)
+     * @return Notification displayed
+     */
+    private void buildAndDisplayNotification() {
+        rebuildServiceNotification();
+
+        // An Rx that has noise gets an extra notification
+        if(!mService.isTransmitterMode() && mService.isThereNoise()) {
+            rebuildNoiseNotification();
+        }
+        else {
+            cancelNoiseNotification();
+        }
+    }
+
+    private Notification rebuildServiceNotification() {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(mService);
 
         if(mService.isTransmitterMode()) {
@@ -116,7 +101,7 @@ public class NotificationDisplay {
         }
 
         if(mService.isConnected()) {
-            if(mUserStateListener.isThereNoise()) {
+            if(mService.isThereNoise()) {
                 builder.setContentText("Noise! (connected)");
             }
             else {
@@ -143,9 +128,48 @@ public class NotificationDisplay {
         // Control buttons
         //builder.addAction();
 
-        mNotification = builder.build();
-        mNotificationManager.notify(ONGOING_NOTIFICATION_ID, mNotification);
+        mServiceNotification = builder.build();
+        mNotificationManager.notify(ONGOING_NOTIFICATION_ID, mServiceNotification);
 
-        return mNotification;
+        return mServiceNotification;
+    }
+
+    private Notification rebuildNoiseNotification() {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(mService);
+        builder.setContentTitle("Monitor - Noise heard!");
+
+        builder.setContentText("A transmitter detected noise");
+        builder.setPriority(NotificationCompat.PRIORITY_HIGH);
+
+        builder.setWhen(mService.getNoiseTracker().lastNoiseHeard());
+        builder.setUsesChronometer(true);
+
+        // Additional notification pieces... sound, vibration, lights
+        builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
+        builder.setLights(Color.BLUE, 1000, 1000);
+
+        // Keep it from being annoying
+        builder.setOnlyAlertOnce(true);
+
+        builder.setSmallIcon(R.drawable.notification_icon);
+
+        // Open status activity on click
+        // FLAG_CANCEL_CURRENT ensures that the extra always gets sent.
+        Intent statusIntent = statusIntent = new Intent(mService, ClientStatus.class);
+        statusIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0, statusIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+        builder.setContentIntent(pendingIntent);
+
+        // Control buttons
+        //builder.addAction();
+
+        mNoiseNotification = builder.build();
+        mNotificationManager.notify(NOISE_NOTIFICATION_ID, mNoiseNotification);
+
+        return mNoiseNotification;
+    }
+
+    private void cancelNoiseNotification() {
+        mNotificationManager.cancel(NOISE_NOTIFICATION_ID);
     }
 }

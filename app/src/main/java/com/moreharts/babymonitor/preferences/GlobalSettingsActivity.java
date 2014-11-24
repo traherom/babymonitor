@@ -29,9 +29,4 @@ public class GlobalSettingsActivity extends Activity
                     .commit();
         }
     }
-
-    @Override
-    public void onFragmentInteraction(Uri uri) {
-
-    }
 }
