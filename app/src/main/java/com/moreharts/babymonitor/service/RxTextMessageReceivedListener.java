@@ -14,28 +14,14 @@ public class RxTextMessageReceivedListener implements MonitorService.OnMessageRe
     public static String TAG = "RxTextMessageHandler";
 
     public void onMessageReceived(MonitorService service, Message msg) {
-        // Only handle command if this service is in RX mode
+        // Only handle message if this service is in RX mode
         if(service.isTransmitterMode()) {
             return;
         }
 
         Log.i(TAG, "Message: " + msg.getMessage());
-
-        // Parse message
-        String[] parts = msg.getMessage().trim().split(" ");
-        String cmd = parts[0].trim().toLowerCase();
-
-        if(cmd.equals(MonitorService.RESP_THRESHOLD)) {
-            try {
-                service.setVADThreshold(Float.parseFloat(parts[1]));
-            }
-            catch(RemoteException e) {
-                Log.e(TAG, "Unable to set threshold");
-                e.printStackTrace();
-            }
-            catch(IllegalFormatException e) {
-                Log.i(TAG, "Ignoring threshold message: " + e);
-            }
+        if(msg.getMessage().startsWith(TextMessageManager.MSG_STATE)) {
+            service.getTextMessageManager().handleStateMessage(msg);
         }
     }
 }

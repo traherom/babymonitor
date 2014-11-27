@@ -25,7 +25,7 @@ public class TxTextMessageReceivedListener implements MonitorService.OnMessageRe
         String[] parts = msg.getMessage().trim().split(" ");
         String cmd = parts[0].trim().toLowerCase();
 
-        if(cmd.equals(MonitorService.CMD_THRESHOLD)) {
+        if(cmd.equals(TextMessageManager.CMD_THRESHOLD)) {
             // Threshold changes
             if(parts.length == 2) {
                 try {
@@ -48,36 +48,7 @@ public class TxTextMessageReceivedListener implements MonitorService.OnMessageRe
             }
 
             // No matter what, return the current threshold setting
-            try {
-                service.sendThresholdResponse();
-            }
-            catch(RemoteException e) {
-                Log.e(TAG, "Unable to send threshold response command");
-                e.printStackTrace();
-            }
-        }
-        else if(cmd.equals(MonitorService.CMD_TX_PING)) {
-            try {
-                Log.i(TAG, "Ping");
-                service.sendChannelMessage(MonitorService.RESP_PING);
-            }
-            catch(RemoteException e) {
-                Log.e(TAG, "Unable to send pong");
-                e.printStackTrace();
-            }
-        }
-        else if(cmd.equals(MonitorService.CMD_NOISE_STATE)) {
-            try {
-                Log.i(TAG, "Noise state request");
-                if(service.isThereNoise())
-                    service.sendChannelMessage(MonitorService.RESP_NOISE_ON);
-                else
-                    service.sendChannelMessage(MonitorService.RESP_NOISE_OFF);
-            }
-            catch(RemoteException e) {
-                Log.e(TAG, "Unable to send noise state response");
-                e.printStackTrace();
-            }
+            service.getTextMessageManager().broadcastState();
         }
     }
 }

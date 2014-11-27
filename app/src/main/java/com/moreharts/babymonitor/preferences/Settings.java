@@ -27,6 +27,8 @@ public class Settings {
     public static final String PREF_PORT = "mumblePort";
     public static final String PREF_USERNAME = "mumbleUser";
     public static final String PREF_THRESHOLD = "defaultSensitivity";
+    public static final String PREF_VIBRATION = "vibrationOn";
+    public static final String PREF_LED = "ledOn";
 
     private final SharedPreferences preferences;
 
@@ -146,6 +148,26 @@ public class Settings {
 
         SharedPreferences.Editor editor = preferences.edit();
         editor.putFloat(PREF_THRESHOLD, thresh);
+        editor.apply();
+    }
+
+    public boolean isVibrationOn() {
+        return preferences.getBoolean(PREF_VIBRATION, false);
+    }
+
+    public void setVibrationOn(boolean vibrate) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean(PREF_VIBRATION, vibrate);
+        editor.apply();
+    }
+
+    public boolean isLEDOn() {
+        return preferences.getBoolean(PREF_LED, true);
+    }
+
+    public void setLEDOn(boolean vibrate) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean(PREF_LED, vibrate);
         editor.apply();
     }
 }

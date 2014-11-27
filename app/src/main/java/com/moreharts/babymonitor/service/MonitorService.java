@@ -18,9 +18,8 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.preferences.BabyTrustStore;
@@ -43,32 +42,25 @@ public class MonitorService extends JumbleService {
 
     public static final float DEFAULT_THRESHOLD = 0.7f;
 
-    public static final String CMD_MUTE = "mute";
-    public static final String CMD_UNMUTE = "unmute";
-    public static final String CMD_RESET = "reset";
-    public static final String CMD_THRESHOLD = "threshold";
-    public static final String CMD_TX_PING = "txping";
-    public static final String CMD_NOISE_STATE = "noise";
-
-    public static final String RESP_PING = "txpong";
-    public static final String RESP_THRESHOLD = "threshold_is";
-    public static final String RESP_NOISE_ON = "noise_on";
-    public static final String RESP_NOISE_OFF = "noise_off";
-
-    // Service info
+    // Service info and universal settings for RX and TX mode
     private final IBinder mBinder = new LocalBinder();
     private Settings mSettings = null;
 
     private int mAudioStream = AudioManager.STREAM_MUSIC;
+
+    private Handler mHandler = new Handler();
+
+    // Local monitor state settings
     private boolean mIsTransmitter = false;
     private float mThreshold = DEFAULT_THRESHOLD;
 
+    // Helpers
+    private Handler mMainHandler = null;
     private NoiseTracker mNoiseTracker = null;
-
-    private Timer mTimer = new Timer();
+    private TextMessageManager mTextMessageManager = null;
+    private RemoteMonitorTracker mRemoteMonitorTracker = null;
 
     // People listening to us (they can also bind to the Jumble binder)
-    private Handler mMainHandler = null;
     private ArrayList<OnTxModeChangedListener> mTxModeHandlers = new ArrayList<OnTxModeChangedListener>();
     private ArrayList<OnMessageReceivedListener> mMessageHandlers = new ArrayList<OnMessageReceivedListener>();
     private ArrayList<OnVADThresholdChangedListener> mThresholdHandlers = new ArrayList<OnVADThresholdChangedListener>();
@@ -159,10 +151,7 @@ public class MonitorService extends JumbleService {
 
             // Make sure we send the current status every time someone joins
             if(mIsTransmitter) {
-                sendThresholdResponse();
-            }
-            else {
-                sendChannelMessage(CMD_THRESHOLD);
+                mTextMessageManager.broadcastState();
             }
         }
 
@@ -215,15 +204,15 @@ public class MonitorService extends JumbleService {
                 // This occurs within Jumble if you try to set the threshold before the audio handler is
                 // up and running
                 Log.w(TAG, "Unable to apply threshold yet, trying again");
-                mTimer.schedule(new TimerTask() {
+                mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         try {
                             getBinder().setVADThreshold(mThreshold);
-                        }
-                        catch(RemoteException e) {
+                        } catch (RemoteException e) {
                             Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
                             e.printStackTrace();
+                            mHandler.postDelayed(this, 1000);
                         }
                     }
                 }, 1000);
@@ -232,29 +221,8 @@ public class MonitorService extends JumbleService {
     }
 
     // Channel messages
-    /**
-     * Sends a message to the current channel
-     * @param msg Message to send
-     * @throws RemoteException
-     */
-    public void sendChannelMessage(String msg) throws RemoteException {
-        if(isConnected()) {
-            try {
-                int channelId = getBinder().getSessionChannel().getId();
-                getBinder().sendChannelTextMessage(channelId, msg, false);
-            }
-            catch(NullPointerException e) {
-                Log.d(TAG, "Unable to send command '" + msg + "': " + e);
-            }
-        }
-    }
-
     public void sendThreshold() throws RemoteException {
-        sendChannelMessage(buildCmd(CMD_THRESHOLD, Float.toString(mThreshold)));
-    }
-
-    public void sendThresholdResponse() throws RemoteException {
-        sendChannelMessage(MonitorService.RESP_THRESHOLD + " " + Float.toString(getVADThreshold()));
+        mTextMessageManager.sendChannelMessage(buildCmd(TextMessageManager.CMD_THRESHOLD, Float.toString(mThreshold)));
     }
 
     private String buildCmd(String cmd, String param) {
@@ -266,16 +234,25 @@ public class MonitorService extends JumbleService {
         return mNoiseTracker;
     }
 
+    public TextMessageManager getTextMessageManager() {
+        return mTextMessageManager;
+    }
+
+    public RemoteMonitorTracker getRemoteMonitorTracker() {
+        return mRemoteMonitorTracker;
+    }
+
     /**
-     * Joins the BabyMonitor channel on the current service, if one exists
+     * Joins the configured channel on the current server, if one exists
      * @throws RemoteException
      */
     public void joinBabyMonitorChannel() throws RemoteException {
         if(isConnected()) {
-            List<Channel> channels = getBinder().getChannelList();
+            String desiredChannel = mSettings.getMumbleChannel();
 
+            List<Channel> channels = getBinder().getChannelList();
             for (Channel channel : channels) {
-                if (channel.getName().contains(PREF_MUMBLE_CHANNEL)) {
+                if (channel.getName().contains(desiredChannel)) {
                     Log.i(TAG, "Attempting to join channel " + channel.getName());
                     getBinder().joinChannel(channel.getId());
                     break;
@@ -283,7 +260,7 @@ public class MonitorService extends JumbleService {
             }
         }
         else {
-            Log.e(TAG, "Not connected to server, not attempting to join any room");
+            Log.i(TAG, "Not connected to server, not attempting to join any room");
         }
     }
 
@@ -296,16 +273,19 @@ public class MonitorService extends JumbleService {
             return;
 
         try {
+            // Mumble stuff
             setDefaultMuteDeafenStatus();
             setDefaultTxMode();
             setVADThreshold(mThreshold);
+
+            // Try to get to the correct place
             joinBabyMonitorChannel();
         }
         catch (RemoteException e) {
             // Try again soon
             Log.i(TAG, "Failed to apply all settings, trying again");
             e.printStackTrace();
-            mTimer.schedule(new TimerTask() {
+            mHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     ensureCorrectModeSettings();
@@ -372,11 +352,27 @@ public class MonitorService extends JumbleService {
         if(mIsTransmitter == isTx)
             return;
 
+        // Disconnect if we're connected now
+        boolean isConnected = isConnected();
+        Server lastServer = null;
+        if(isConnected) {
+            try {
+                lastServer = getBinder().getConnectedServer();
+                disconnect();
+            }
+            catch(RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // Change and tell everyone
         mIsTransmitter = isTx;
         notifyOnTxModeChangedListeners(isTx);
 
-        // Ensure all our mode info is correct
-        ensureCorrectModeSettings();
+        // Reconnect if needed
+        if(isConnected) {
+            connect(lastServer.getHost(), lastServer.getPort(), lastServer.getUsername());
+        }
     }
 
     @Override
@@ -397,11 +393,11 @@ public class MonitorService extends JumbleService {
             e.printStackTrace();
         }
 
-        // Add listeners
-        mNoiseTracker = new NoiseTracker(this);
-        mNotification = new NotificationDisplay(this);
-        addOnMessageHandler(new TxTextMessageReceivedListener());
-        addOnMessageHandler(new RxTextMessageReceivedListener());
+        // Add helper components. ORDER IS IMPORTANT.
+        mTextMessageManager = new TextMessageManager(this);
+        mNoiseTracker = new NoiseTracker(this); // Must come after text message manager
+        mNotification = new NotificationDisplay(this); // Must come after noise tracker
+        mRemoteMonitorTracker = new RemoteMonitorTracker(this); // Must come after text message manager
 
         // Apply settings appropriately
         try {
@@ -432,8 +428,6 @@ public class MonitorService extends JumbleService {
     @Override
     public void onDestroy() {
         Log.d(TAG, "Destroying MonitorService");
-
-        mTimer.cancel();
 
         disconnect();
         stopForeground(true);
@@ -668,10 +662,5 @@ public class MonitorService extends JumbleService {
 
     public interface OnUserStateListener {
         public void onUserTalk(MonitorService service, User user);
-    }
-
-    public interface OnNoiseListener {
-        public void onNoiseStart(MonitorService service);
-        public void onNoiseStop(MonitorService service);
     }
 }

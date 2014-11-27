@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.support.v4.app.NotificationCompat;
 
 import com.moreharts.babymonitor.R;
+import com.moreharts.babymonitor.preferences.Settings;
 import com.moreharts.babymonitor.ui.ClientStatus;
 
 /**
@@ -23,6 +24,8 @@ public class NotificationDisplay {
 
     private MonitorService mService = null;
 
+    private Settings mSettings = null;
+
     private Notification mServiceNotification = null;
     private Notification mNoiseNotification = null;
     private NotificationManager mNotificationManager;
@@ -30,6 +33,8 @@ public class NotificationDisplay {
     public NotificationDisplay(MonitorService service) {
         mService = service;
         mNotificationManager = (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
+
+        mSettings = Settings.getInstance(service);
 
         mService.addOnTxModeChangedListener(new MonitorService.OnTxModeChangedListener() {
             @Override
@@ -55,7 +60,7 @@ public class NotificationDisplay {
             }
         });
 
-        mService.getNoiseTracker().addOnNoiseListener(new MonitorService.OnNoiseListener() {
+        mService.getNoiseTracker().addOnNoiseListener(new NoiseTracker.OnNoiseListener() {
             @Override
             public void onNoiseStart(MonitorService service) {
                 buildAndDisplayNotification();
@@ -141,12 +146,14 @@ public class NotificationDisplay {
         builder.setContentText("A transmitter detected noise");
         builder.setPriority(NotificationCompat.PRIORITY_HIGH);
 
-        builder.setWhen(mService.getNoiseTracker().lastNoiseHeard());
+        builder.setWhen(mService.getNoiseTracker().getLastNoiseHeard());
         builder.setUsesChronometer(true);
 
         // Additional notification pieces... sound, vibration, lights
-        builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
-        builder.setLights(Color.BLUE, 1000, 1000);
+        if(mSettings.isVibrationOn())
+            builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
+        if(mSettings.isLEDOn())
+            builder.setLights(Color.BLUE, 1000, 1000);
 
         // Keep it from being annoying
         builder.setOnlyAlertOnce(true);
