@@ -1,25 +1,16 @@
 package com.moreharts.babymonitor.service;
 
-import android.content.Intent;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
 import android.os.AsyncTask;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Binder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
-
-import java.io.ByteArrayInputStream;
-import java.security.KeyStore;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.preferences.BabyTrustStore;
@@ -28,10 +19,18 @@ import com.morlunk.jumble.Constants;
 import com.morlunk.jumble.JumbleService;
 import com.morlunk.jumble.model.Channel;
 import com.morlunk.jumble.model.Message;
+import com.morlunk.jumble.model.Server;
 import com.morlunk.jumble.model.User;
 import com.morlunk.jumble.util.JumbleObserver;
-import com.morlunk.jumble.model.Server;
 import com.morlunk.jumble.util.ParcelableByteArray;
+
+import java.io.ByteArrayInputStream;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MonitorService extends JumbleService {
     public static final String TAG = "MonitorService";
@@ -53,6 +52,9 @@ public class MonitorService extends JumbleService {
     // Local monitor state settings
     private boolean mIsTransmitter = false;
     private float mThreshold = DEFAULT_THRESHOLD;
+
+    private String mDesiredChannelName = null;
+    private int mDesiredChannelId = -1;
 
     // Helpers
     private Handler mMainHandler = null;
@@ -165,6 +167,21 @@ public class MonitorService extends JumbleService {
             Log.i(TAG, "permission denied: " + reason);
         }
 
+
+        @Override
+        public void onChannelAdded(Channel channel) throws RemoteException {
+            if(mDesiredChannelName != null && channel.getName().equals(mDesiredChannelName)) {
+                mDesiredChannelId = channel.getId();
+            }
+        }
+
+        @Override
+        public void onChannelRemoved(Channel channel) throws RemoteException {
+            if(mDesiredChannelName == null || channel.getName().equals(mDesiredChannelName)) {
+                mDesiredChannelId = -1;
+            }
+        }
+
         @Override
         public void onMessageLogged(Message message) throws RemoteException {
             notifyMessageHandlers(message);
@@ -248,15 +265,8 @@ public class MonitorService extends JumbleService {
      */
     public void joinBabyMonitorChannel() throws RemoteException {
         if(isConnected()) {
-            String desiredChannel = mSettings.getMumbleChannel();
-
-            List<Channel> channels = getBinder().getChannelList();
-            for (Channel channel : channels) {
-                if (channel.getName().contains(desiredChannel)) {
-                    Log.i(TAG, "Attempting to join channel " + channel.getName());
-                    getBinder().joinChannel(channel.getId());
-                    break;
-                }
+            if(mDesiredChannelId > 0) {
+                getBinder().joinChannel(mDesiredChannelId);
             }
         }
         else {
@@ -279,6 +289,7 @@ public class MonitorService extends JumbleService {
             setVADThreshold(mThreshold);
 
             // Try to get to the correct place
+            mDesiredChannelName = mSettings.getMumbleChannel();
             joinBabyMonitorChannel();
         }
         catch (RemoteException e) {
