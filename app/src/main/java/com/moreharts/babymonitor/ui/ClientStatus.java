@@ -1,5 +1,6 @@
 package com.moreharts.babymonitor.ui;
 
+import android.app.ActionBar;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -8,23 +9,24 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentPagerAdapter;
+import android.support.v4.view.ViewPager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.support.v4.app.FragmentTransaction;
 
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.preferences.GlobalSettingsActivity;
 import com.moreharts.babymonitor.preferences.Settings;
 import com.moreharts.babymonitor.service.MonitorService;
-import com.moreharts.babymonitor.service.ServiceStatusAdapter;
 import com.morlunk.jumble.util.JumbleObserver;
 
-import java.util.Random;
+import java.util.ArrayList;
 
 
 public class ClientStatus extends FragmentActivity implements
@@ -33,6 +35,34 @@ public class ClientStatus extends FragmentActivity implements
         ClientControlFragment.OnFragmentInteractionListener
 {
     private static final String TAG = "ClientStatus";
+
+    public interface OnMonitorServiceBound {
+        public void onMonitorServiceBound(MonitorService service);
+        public void onMonitorServiceUnbound(MonitorService service);
+    }
+
+    // People listening for us binding to the service
+    private ArrayList<OnMonitorServiceBound> mServiceBoundListeners = new ArrayList<OnMonitorServiceBound>();
+
+    public void addOnMonitorServiceBoundListener(OnMonitorServiceBound listener) {
+        mServiceBoundListeners.add(listener);
+    }
+
+    public void removeOnMonitorServiceBoundListener(OnMonitorServiceBound listener) {
+        mServiceBoundListeners.remove(listener);
+    }
+
+    private void notifyOnMonitorServiceBoundListeners(MonitorService service) {
+        for(OnMonitorServiceBound listener : mServiceBoundListeners) {
+            listener.onMonitorServiceBound(service);
+        }
+    }
+
+    private void notifyOnMonitorServiceUnboundListeners(MonitorService service) {
+        for(OnMonitorServiceBound listener : mServiceBoundListeners) {
+            listener.onMonitorServiceUnbound(service);
+        }
+    }
 
     // Connection to service
     private MonitorService mService = null;
@@ -44,21 +74,18 @@ public class ClientStatus extends FragmentActivity implements
             mService = binder.getService();
 
             // Watch for non-Jumble info updates
-            mService.addOnTxModeChangedListener(mOnTxModeChangedListener);
-            mService.addOnVADThresholdChangedListener(mOnVADThresholdChangedListener);
+            notifyOnMonitorServiceBoundListeners(mService);
 
-            // Set up UI appropriately at the beginning
-            refreshOptionsMenuVisibility();
-            refreshControlFragmentVisibility();
-
-            // Tie info list to service
-            mStatusAdapter.setService(mService);
+            // Tie UI in to service
             try{
                 mService.getBinder().registerObserver(mJumbleObserver);
             }
             catch(RemoteException e) {
                 e.printStackTrace();
             }
+
+            // Set up UI appropriately at the beginning
+            refreshOptionsMenuVisibility();
         }
 
         @Override
@@ -72,26 +99,8 @@ public class ClientStatus extends FragmentActivity implements
                 e.printStackTrace();
             }
 
-            mService.removeOnTxModeChangedListener(mOnTxModeChangedListener);
-            mService.removeOnVADThresholdChangedListener(mOnVADThresholdChangedListener);
-
-            mStatusAdapter.setService(null);
+            notifyOnMonitorServiceUnboundListeners(mService);
             mService = null;
-        }
-    };
-
-    private MonitorService.OnTxModeChangedListener mOnTxModeChangedListener = new MonitorService.OnTxModeChangedListener() {
-        @Override
-        public void onTXModeChanged(MonitorService service, boolean isTxMode) {
-            refreshControlFragmentVisibility();
-        }
-    };
-
-    private MonitorService.OnVADThresholdChangedListener mOnVADThresholdChangedListener = new MonitorService.OnVADThresholdChangedListener() {
-        @Override
-        public void onVADThresholdChanged(MonitorService service, float newThreshold) {
-            mClientControlFragment.setThreshold(newThreshold);
-            mStatusList.forceRefresh();
         }
     };
 
@@ -101,54 +110,42 @@ public class ClientStatus extends FragmentActivity implements
         public void onConnected() throws RemoteException {
             // UI updates?
             refreshOptionsMenuVisibility();
-            refreshControlFragmentVisibility();
 
             // Save the host and port for future use
             mSettings.setMumbleHost(mService.getHost());
             mSettings.setMumblePort(mService.getPort());
 
             // Ensure the mute status matches our button
-            mService.setDeafen(mClientControlFragment.getMute());
+            //mService.setDeafen(mClientControlFragment.getMute());
         }
 
         @Override
         public void onDisconnected() throws RemoteException {
             // UI updates?
             refreshOptionsMenuVisibility();
-            refreshControlFragmentVisibility();
         }
     };
 
     // UI elements
-    FragmentManager mFragmentMgr;
-    StatusListFragment mStatusList;
-    ClientControlFragment mClientControlFragment;
+    private PagerAdapter mPagerAdapter;
+    private FragmentManager mFragmentMgr;
+    private RemoteStatusFragment mRemoteStatusFrag = null;
+    private LocalStatusFragment mLocalStatusFrag = null;
+    private ActionBar mActionBar;
+    private ViewPager mPager;
 
-    ServiceStatusAdapter mStatusAdapter;
-    MenuItem connectMenuItem = null;
-    MenuItem changeServerMenuItem = null;
-    MenuItem disconnectMenuItem = null;
-    MenuItem switchToRxMenuItem = null;
-    MenuItem switchToTxMenuItem = null;
-    MenuItem startOnBootMenuItem = null;
+    private MenuItem connectMenuItem = null;
+    private MenuItem changeServerMenuItem = null;
+    private MenuItem disconnectMenuItem = null;
+    private MenuItem switchToRxMenuItem = null;
+    private MenuItem switchToTxMenuItem = null;
+    private MenuItem startOnBootMenuItem = null;
 
     // Dynamic server list and settings
-    Settings mSettings;
+    private Settings mSettings;
     private ServerList mServerList;
 
     private String mMumbleUserName = null;
-
-    public void showClientControlFragment() {
-        FragmentTransaction trans = mFragmentMgr.beginTransaction();
-        trans.show(mClientControlFragment);
-        trans.commitAllowingStateLoss();
-    }
-
-    public void hideClientControlFragment() {
-        FragmentTransaction trans = mFragmentMgr.beginTransaction();
-        trans.hide(mClientControlFragment);
-        trans.commitAllowingStateLoss();
-    }
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int pos, long id) {
@@ -198,20 +195,111 @@ public class ClientStatus extends FragmentActivity implements
         Log.d(TAG, "User cancelled changing server parameters, ignoring");
     }
 
+    public class PagerAdapter extends FragmentPagerAdapter {
+        public static final int LOCAL_STATUS_TAB = 0;
+        public static final int REMOTE_STATUS_TAB = 1;
+        public static final int TAB_COUNT = REMOTE_STATUS_TAB + 1;
+
+        private Context mContext = null;
+
+        public PagerAdapter(Context context, FragmentManager fm) {
+            super(fm);
+            mContext = context;
+        }
+
+        @Override
+        public Fragment getItem(int position) {
+            // Give everyone access to our service as we create the fragment
+
+            Fragment frag = null;
+            switch(position) {
+                case LOCAL_STATUS_TAB:
+                    if(mLocalStatusFrag == null)
+                        mLocalStatusFrag = new LocalStatusFragment();
+                    frag = mLocalStatusFrag;
+                    break;
+                case REMOTE_STATUS_TAB:
+                    if(mRemoteStatusFrag == null)
+                        mRemoteStatusFrag = new RemoteStatusFragment();
+                    frag = mRemoteStatusFrag;
+                    break;
+            }
+
+            return frag;
+        }
+
+        @Override
+        public CharSequence getPageTitle(int position) {
+            switch(position) {
+                case LOCAL_STATUS_TAB:
+                    return mContext.getString(R.string.local_status_tab_name);
+                case REMOTE_STATUS_TAB:
+                    return mContext.getString(R.string.remote_status_tab_name);
+                default:
+                    return "unknown";
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return TAB_COUNT;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_client_status);
 
         // UI stuff
-        mStatusAdapter = new ServiceStatusAdapter(this);
-
         mFragmentMgr = getSupportFragmentManager();
-        mStatusList = (StatusListFragment)mFragmentMgr.findFragmentById(R.id.status_list);
-        mStatusList.setListAdapter(mStatusAdapter);
-        mStatusList.getListView().setOnItemClickListener(this);
 
-        mClientControlFragment = (ClientControlFragment)mFragmentMgr.findFragmentById(R.id.client_controls);
+        mPagerAdapter = new PagerAdapter(this, mFragmentMgr);
+        mPager = (ViewPager)findViewById(R.id.pager);
+        mPager.setAdapter(mPagerAdapter);
+
+        mActionBar = getActionBar();
+        mActionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+        ActionBar.TabListener tabListener = new ActionBar.TabListener() {
+            @Override
+            public void onTabSelected(ActionBar.Tab tab, android.app.FragmentTransaction ft) {
+                mPager.setCurrentItem(tab.getPosition());
+            }
+
+            @Override
+            public void onTabUnselected(ActionBar.Tab tab, android.app.FragmentTransaction ft) {
+
+            }
+
+            @Override
+            public void onTabReselected(ActionBar.Tab tab, android.app.FragmentTransaction ft) {
+                // Nobody cares
+            }
+        };
+
+        mPager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+            }
+
+            @Override
+            public void onPageSelected(int position) {
+                mActionBar.setSelectedNavigationItem(position);
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state) {
+
+            }
+        });
+
+        mActionBar.addTab(mActionBar.newTab()
+                .setText(mPagerAdapter.getPageTitle(0))
+                .setTabListener(tabListener));
+        mActionBar.addTab(mActionBar.newTab()
+                .setText(mPagerAdapter.getPageTitle(1))
+                .setTabListener(tabListener));
 
         // Audio controls enabled
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -272,15 +360,6 @@ public class ClientStatus extends FragmentActivity implements
         return true;
     }
 
-    public void refreshControlFragmentVisibility() {
-        if(mService == null || !mService.isConnected() || mService.isTransmitterMode()) {
-            hideClientControlFragment();
-        }
-        else {
-            showClientControlFragment();
-        }
-    }
-
     public void refreshOptionsMenuVisibility() {
         // Ensure menu is already created/saved
         if(disconnectMenuItem == null)
@@ -328,14 +407,12 @@ public class ClientStatus extends FragmentActivity implements
                 // Make connection a receiver
                 mService.setTransmitterMode(false);
                 mSettings.setTxMode(false);
-                mStatusList.forceRefresh();
                 refreshOptionsMenuVisibility();
                 return true;
             case R.id.switch_to_tx:
                 // Make connection a transmitter
                 mService.setTransmitterMode(true);
                 mSettings.setTxMode(true);
-                mStatusList.forceRefresh();
                 refreshOptionsMenuVisibility();
                 return true;
             case R.id.connect: // Fall through

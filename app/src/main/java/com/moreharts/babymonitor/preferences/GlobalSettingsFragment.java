@@ -1,14 +1,11 @@
 package com.moreharts.babymonitor.preferences;
 
 import android.app.Activity;
+import android.app.Fragment;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.preference.DialogPreference;
 import android.preference.EditTextPreference;
-import android.preference.Preference;
-import android.app.Fragment;
-import android.util.Log;
 import android.preference.PreferenceFragment;
 
 import com.moreharts.babymonitor.R;

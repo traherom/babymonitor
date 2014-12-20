@@ -1,7 +1,7 @@
 package com.moreharts.babymonitor.preferences;
 
-import android.content.SharedPreferences;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 
 import com.moreharts.babymonitor.service.MonitorService;
@@ -9,8 +9,8 @@ import com.moreharts.babymonitor.ui.ServerList;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Random;
 
 /**

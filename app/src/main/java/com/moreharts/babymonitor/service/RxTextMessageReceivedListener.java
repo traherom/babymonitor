@@ -1,11 +1,8 @@
 package com.moreharts.babymonitor.service;
 
-import android.os.RemoteException;
 import android.util.Log;
 
 import com.morlunk.jumble.model.Message;
-
-import java.util.IllegalFormatException;
 
 /**
  * Created by traherom on 11/22/2014.

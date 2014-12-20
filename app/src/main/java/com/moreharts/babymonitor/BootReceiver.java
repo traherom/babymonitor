@@ -4,8 +4,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.util.Log;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import com.moreharts.babymonitor.preferences.Settings;
 import com.moreharts.babymonitor.service.MonitorService;

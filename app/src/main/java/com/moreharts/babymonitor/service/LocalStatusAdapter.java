@@ -22,7 +22,7 @@ import com.morlunk.jumble.util.JumbleObserver;
 /**
  * Created by traherom on 10/26/2014.
  */
-public class ServiceStatusAdapter implements ListAdapter {
+public class LocalStatusAdapter implements ListAdapter {
     public static final String TAG = "ServiceStatusAdapter";
 
     public static final int MODE_LINE = 0;
@@ -36,7 +36,7 @@ public class ServiceStatusAdapter implements ListAdapter {
     private MonitorService mService = null;
     private LayoutInflater inflater = null;
 
-    public ServiceStatusAdapter(Context context) {
+    public LocalStatusAdapter(Context context) {
         inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
     }
 
@@ -128,15 +128,15 @@ public class ServiceStatusAdapter implements ListAdapter {
 
         if(convertView == null) {
             // Need to make the view
-            view = inflater.inflate(R.layout.two_line_list_item, null);
+            view = inflater.inflate(android.R.layout.two_line_list_item, null);
         }
         else {
             view = convertView;
         }
 
         // Get pieces
-        primaryLine = (TextView)view.findViewById(R.id.primaryTxt);
-        secondaryLine = (TextView)view.findViewById(R.id.secondaryTxt);
+        primaryLine = (TextView)view.findViewById(android.R.id.text1);
+        secondaryLine = (TextView)view.findViewById(android.R.id.text2);
 
         // If we don't have a service, the only line we should display is
         // the top one, where we'll say we don't have anything to work with

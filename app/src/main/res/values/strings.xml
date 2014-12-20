@@ -42,5 +42,7 @@
     <string name="change_server">Change Server</string>
     <string name="switch_to_tx_mode_short">Switch to Tx</string>
     <string name="switch_to_rx_mode_short">Switch to Rx Mode</string>
+    <string name="local_status_tab_name">Local Status</string>
+    <string name="remote_status_tab_name">Remote Status</string>
 
 </resources>

@@ -1,9 +1,6 @@
 package com.moreharts.babymonitor.ui;
 
-import android.app.Activity;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.support.v4.app.ListFragment;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,9 +10,9 @@ import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
-import com.moreharts.babymonitor.R;
 
-import com.moreharts.babymonitor.service.ServiceStatusAdapter;
+import com.moreharts.babymonitor.R;
+import com.moreharts.babymonitor.service.LocalStatusAdapter;
 
 /**
  * A fragment representing a list of Items.
@@ -58,7 +55,7 @@ public class StatusListFragment extends ListFragment implements AdapterView.OnIt
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAdapter = new ServiceStatusAdapter(getActivity());
+        mAdapter = new LocalStatusAdapter(getActivity());
     }
 
     @Override
@@ -92,7 +89,7 @@ public class StatusListFragment extends ListFragment implements AdapterView.OnIt
     }
 
     public void forceRefresh() {
-        ((ServiceStatusAdapter)getListAdapter()).forceRefresh();
+        ((LocalStatusAdapter)getListAdapter()).forceRefresh();
     }
 
     /**

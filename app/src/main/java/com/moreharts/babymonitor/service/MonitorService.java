@@ -220,16 +220,19 @@ public class MonitorService extends JumbleService {
             catch(NullPointerException e) {
                 // This occurs within Jumble if you try to set the threshold before the audio handler is
                 // up and running
-                Log.w(TAG, "Unable to apply threshold yet, trying again");
+                Log.w(TAG, "Unable to apply threshold yet, trying again after a delay");
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         try {
                             getBinder().setVADThreshold(mThreshold);
-                        } catch (RemoteException e) {
+                        } catch (NullPointerException e) {
                             Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
                             e.printStackTrace();
                             mHandler.postDelayed(this, 1000);
+                        } catch (RemoteException e) {
+                            Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
+                            e.printStackTrace();
                         }
                     }
                 }, 1000);

@@ -1,0 +1,20 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+             xmlns:tools="http://schemas.android.com/tools"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:orientation="vertical"
+             tools:context="com.moreharts.babymonitor.ui.RemoteStatusFragment">
+
+    <Spinner
+        android:id="@+id/monitor_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"></Spinner>
+    
+    <fragment android:name="com.moreharts.babymonitor.ui.StatusListFragment"
+              android:id="@+id/status_list"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"
+              android:layout_weight="10"
+              tools:layout="@layout/fragment_item_list" />
+
+</LinearLayout>

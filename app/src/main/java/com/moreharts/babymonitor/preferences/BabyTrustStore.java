@@ -18,7 +18,6 @@
 package com.moreharts.babymonitor.preferences;
 
 import android.content.Context;
-import android.os.Environment;
 
 import java.io.File;
 import java.io.FileInputStream;

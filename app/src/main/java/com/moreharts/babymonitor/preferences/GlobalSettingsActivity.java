@@ -1,7 +1,6 @@
 package com.moreharts.babymonitor.preferences;
 
 import android.app.Activity;
-import android.net.Uri;
 import android.os.Bundle;
 
 import com.moreharts.babymonitor.R;

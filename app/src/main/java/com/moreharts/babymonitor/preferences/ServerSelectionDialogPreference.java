@@ -1,15 +1,12 @@
 package com.moreharts.babymonitor.preferences;
 
-import android.app.AlertDialog;
 import android.content.Context;
-import android.os.Bundle;
 import android.preference.DialogPreference;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.EditText;
 
 import com.moreharts.babymonitor.R;
-import com.moreharts.babymonitor.service.MonitorService;
 import com.moreharts.babymonitor.ui.ServerList;
 
 /**

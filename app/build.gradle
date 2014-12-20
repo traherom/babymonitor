@@ -1,8 +1,8 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 20
-    buildToolsVersion '20.0.0'
+    compileSdkVersion 21
+    buildToolsVersion '21.1.1'
     defaultConfig {
         applicationId 'com.moreharts.babymonitor'
         minSdkVersion 16
@@ -12,12 +12,9 @@ android {
     }
     buildTypes {
         release {
-            runProguard false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
             debuggable true
-            jniDebugBuild true
         }
     }
     productFlavors {
@@ -25,7 +22,7 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar', '*.so'])
+    compile fileTree(include: ['*.jar', '*.so'], dir: 'libs')
     compile 'com.android.support:support-v4:20.0.0'
     compile project(':libraries:Jumble')
 }

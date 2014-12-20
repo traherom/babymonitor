@@ -1,6 +1,5 @@
 package com.moreharts.babymonitor.service;
 
-import android.nfc.FormatException;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.util.Log;
@@ -9,7 +8,6 @@ import com.morlunk.jumble.IJumbleService;
 import com.morlunk.jumble.model.Message;
 
 import java.util.ArrayList;
-import java.util.IllegalFormatException;
 
 /**
  * Manages all incoming and outgoing text messages within Mumble

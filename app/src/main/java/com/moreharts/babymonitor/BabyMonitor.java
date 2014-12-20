@@ -3,17 +3,17 @@ package com.moreharts.babymonitor;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
-import com.moreharts.babymonitor.ui.ClientStatus;
 import com.moreharts.babymonitor.preferences.BabyCertificateManager;
 import com.moreharts.babymonitor.preferences.Settings;
+import com.moreharts.babymonitor.ui.ClientStatus;
 
 import org.spongycastle.operator.OperatorCreationException;
 
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
