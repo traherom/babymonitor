@@ -22,9 +22,7 @@ import com.morlunk.jumble.util.JumbleObserver;
 public class RemoteStatusAdapter implements ListAdapter {
     public static final String TAG = "RemoteStatusAdapter";
 
-    public static final long SECONDS_CONV = 1000 * 60;
-    public static final long MINUTES_CONV = SECONDS_CONV * 60;
-    public static final long HOURS_CONV = MINUTES_CONV * 60;
+    public static final int REFRESH_TIME = 5000;
 
     public static final int USERNAME_LINE = 0;
     public static final int THRESHOLD_LINE = 1;
@@ -32,6 +30,7 @@ public class RemoteStatusAdapter implements ListAdapter {
     public static final int LINE_COUNT = NOISE_DETECTED_LINE + 1;
 
     private DataSetObservable mObservers = new DataSetObservable();
+    private Handler mHandler = new Handler();
     private MonitorService mService = null;
     private LayoutInflater mInflater = null;
 
@@ -82,6 +81,15 @@ public class RemoteStatusAdapter implements ListAdapter {
             }
         }
 
+        // Force a refresh on our display periodically
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                forceRefresh();
+                mHandler.postDelayed(this, REFRESH_TIME);
+            }
+        }, REFRESH_TIME);
+
         // Do the swap at the end so we still have access to the old service
         mService = service;
         forceRefresh();
@@ -115,13 +123,11 @@ public class RemoteStatusAdapter implements ListAdapter {
 
     @Override
     public void registerDataSetObserver(DataSetObserver dataSetObserver) {
-        Log.d(TAG, "Registering dataset observer");
         mObservers.registerObserver(dataSetObserver);
     }
 
     @Override
     public void unregisterDataSetObserver(DataSetObserver dataSetObserver) {
-        Log.d(TAG, "Unregister dataset observer");
         mObservers.unregisterObserver(dataSetObserver);
     }
 
@@ -199,29 +205,7 @@ public class RemoteStatusAdapter implements ListAdapter {
                     break;
 
                 case NOISE_DETECTED_LINE:
-                    long howLongAgo = System.currentTimeMillis() - mState.getLastNoiseHeard();
-
-                    StringBuilder sb = new StringBuilder();
-                    if(howLongAgo < MINUTES_CONV) {
-                        sb.append(howLongAgo / SECONDS_CONV);
-                        sb.append(" second");
-                        if(howLongAgo != SECONDS_CONV)
-                            sb.append('s');
-                    }
-                    else if(howLongAgo < HOURS_CONV) {
-                        sb.append(howLongAgo / MINUTES_CONV);
-                        sb.append(" minute");
-                        if(howLongAgo == MINUTES_CONV)
-                            sb.append('s');
-                    }
-                    else {
-                        sb.append(howLongAgo / HOURS_CONV);
-                        sb.append(" hours");
-                        if(howLongAgo == HOURS_CONV)
-                            sb.append('s');
-                    }
-
-                    secondaryLine.setText(sb.toString());
+                    secondaryLine.setText(NoiseTracker.millisecondsToHuman(mState.getLastNoiseHeard()));
                     break;
 
                 default:

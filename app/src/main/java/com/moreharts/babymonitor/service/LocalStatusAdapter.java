@@ -13,8 +13,7 @@ import android.view.ViewGroup;
 import android.widget.ListAdapter;
 import android.widget.TextView;
 
-import com.moreharts.babymonitor.R;
-import com.morlunk.jumble.Constants;
+import com.moreharts.babymonitor.preferences.Settings;
 import com.morlunk.jumble.model.Channel;
 import com.morlunk.jumble.model.User;
 import com.morlunk.jumble.util.JumbleObserver;
@@ -23,21 +22,27 @@ import com.morlunk.jumble.util.JumbleObserver;
  * Created by traherom on 10/26/2014.
  */
 public class LocalStatusAdapter implements ListAdapter {
-    public static final String TAG = "ServiceStatusAdapter";
+    public static final String TAG = "LocalStatusAdapter";
 
-    public static final int MODE_LINE = 0;
-    public static final int CONNECTED_LINE = 1;
-    public static final int CHANNEL_LINE = 2;
-    public static final int TALK_LINE = 3;
-    public static final int THRESHOLD_LINE = 4;
-    public static final int USERNAME_LINE = 5;
+    public static final int REFRESH_TIME = 5000;
 
     private DataSetObservable mObservers = new DataSetObservable();
+    private Handler mHandler = new Handler();
+    private Settings mSettings = null;
     private MonitorService mService = null;
     private LayoutInflater inflater = null;
 
     public LocalStatusAdapter(Context context) {
         inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+        // Watch for changes we care about
+        mSettings = Settings.getInstance(context);
+        mSettings.addOnChangeListener(new Settings.OnChangeListener() {
+            @Override
+            public void onChange(Settings settings) {
+                forceRefresh();
+            }
+        });
     }
 
     public void setService(MonitorService service) {
@@ -61,6 +66,15 @@ public class LocalStatusAdapter implements ListAdapter {
                 e.printStackTrace();
             }
         }
+
+        // Force a refresh on our display periodically
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                forceRefresh();
+                mHandler.postDelayed(this, REFRESH_TIME);
+            }
+        }, REFRESH_TIME);
 
         // Do the swap at the end so we still have access to the old service
         mService = service;
@@ -90,19 +104,33 @@ public class LocalStatusAdapter implements ListAdapter {
 
     @Override
     public void registerDataSetObserver(DataSetObserver dataSetObserver) {
-        Log.d(TAG, "Registering dataset observer");
         mObservers.registerObserver(dataSetObserver);
     }
 
     @Override
     public void unregisterDataSetObserver(DataSetObserver dataSetObserver) {
-        Log.d(TAG, "Unregister dataset observer");
         mObservers.unregisterObserver(dataSetObserver);
+    }
+
+    private int getCountTransmitter() {
+        return 4;
+    }
+
+    private int getCountReceiver() {
+        return 3;
     }
 
     @Override
     public int getCount() {
-        return 6;
+        if(mService == null) {
+            return 1;
+        }
+        else if(mService.isTransmitterMode()) {
+            return getCountTransmitter();
+        }
+        else {
+            return getCountReceiver();
+        }
     }
 
     @Override
@@ -120,8 +148,7 @@ public class LocalStatusAdapter implements ListAdapter {
         return true;
     }
 
-    @Override
-    public View getView(int pos, View convertView, ViewGroup viewGroup) {
+    private View createTwoLineListItemView(View convertView, String line1, String line2) {
         View view;
         TextView primaryLine;
         TextView secondaryLine;
@@ -138,133 +165,142 @@ public class LocalStatusAdapter implements ListAdapter {
         primaryLine = (TextView)view.findViewById(android.R.id.text1);
         secondaryLine = (TextView)view.findViewById(android.R.id.text2);
 
-        // If we don't have a service, the only line we should display is
-        // the top one, where we'll say we don't have anything to work with
-        if(mService == null) {
-            primaryLine.setText("Error");
-            secondaryLine.setText("Service not running");
-            return view;
-        }
-
-        // Fill as appropriate
-        if(pos == CONNECTED_LINE) {
-            primaryLine.setText("Host");
-
-            if(mService.isConnected()) {
-                secondaryLine.setText(mService.getHost() + ":" + mService.getPort());
-            }
-            else {
-                secondaryLine.setText("Disconnected");
-            }
-        }
-        else if(pos == CHANNEL_LINE) {
-            primaryLine.setText("Channel");
-
-            if(mService.isConnected()) {
-                try {
-                    Channel ch = mService.getBinder().getSessionChannel();
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(ch.getName());
-                    sb.append(": ");
-                    sb.append(ch.getUsers().size());
-                    sb.append(" users");
-
-                    secondaryLine.setText(sb);
-                }
-                catch(RemoteException e) {
-                    e.printStackTrace();
-                    secondaryLine.setText("Remote Exception Error");
-                }
-                catch(NullPointerException e) {
-                    e.printStackTrace();
-                    secondaryLine.setText(e.getMessage());
-                }
-            }
-            else {
-                secondaryLine.setText("Disconnected");
-                view.setEnabled(false);
-            }
-        }
-        else if(pos == TALK_LINE) {
-            primaryLine.setText("Talk");
-
-            if(mService.isConnected()) {
-                try {
-                    User user = mService.getBinder().getSessionUser();
-                    boolean canHear = !user.isDeafened() && !user.isSuppressed();
-                    boolean canSpeak = !user.isMuted() && !user.isSuppressed();
-
-                    int txMode = mService.getBinder().getTransmitMode();
-
-                    StringBuilder sb = new StringBuilder();
-                    if(txMode == Constants.TRANSMIT_PUSH_TO_TALK) {
-                        sb.append("PTT");
-                    }
-                    else if(txMode == Constants.TRANSMIT_CONTINUOUS) {
-                        sb.append("Continuous TX");
-                    }
-                    else if(txMode == Constants.TRANSMIT_VOICE_ACTIVITY) {
-                        sb.append("TX on activity");
-                    }
-
-                    sb.append(", ");
-                    sb.append(canHear ? "can hear" : "can't hear");
-                    sb.append(", ");
-                    sb.append(canSpeak ? "can speak" : "can't speak");
-
-                    secondaryLine.setText(sb);
-                }
-                catch(RemoteException e) {
-                    e.printStackTrace();
-                    secondaryLine.setText("Remote Exception Error");
-                }
-                catch(NullPointerException e) {
-                    e.printStackTrace();
-                    secondaryLine.setText("Null pointer exception");
-                }
-            }
-            else {
-                secondaryLine.setText("Disconnected");
-                view.setEnabled(false);
-            }
-        }
-        else if(pos == MODE_LINE) {
-            primaryLine.setText("Monitor Mode");
-
-            if(mService.isTransmitterMode()) {
-                secondaryLine.setText("Transmitter");
-            }
-            else {
-                secondaryLine.setText("Receiver");
-            }
-        }
-        else if(pos == THRESHOLD_LINE) {
-            primaryLine.setText("Activity Threshold");
-
-            secondaryLine.setText(Float.toString(mService.getVADThreshold()));
-        }
-        else if(pos == USERNAME_LINE) {
-            primaryLine.setText("User name");
-
-            try {
-                if(mService.isConnected()) {
-                    secondaryLine.setText(mService.getBinder().getSessionUser().getName());
-                }
-                else {
-                    secondaryLine.setText("Disconnected");
-                }
-            }
-            catch(RemoteException e) {
-                e.printStackTrace();
-                secondaryLine.setText("Remote exception error");
-            }
-            catch(NullPointerException e) {
-                e.printStackTrace();
-                secondaryLine.setText("Null pointer exception");
-            }
-        }
+        primaryLine.setText(line1);
+        secondaryLine.setText(line2);
 
         return view;
+    }
+
+    private View getViewForMode(View convertView) {
+        String line1 = null;
+        String line2 = null;
+
+        if(mService.isTransmitterMode()) {
+            line1 = "Transmitter Mode";
+        }
+        else  {
+            line1 = "Receiver Mode";
+        }
+
+        if(mService.isConnected()) {
+            StringBuilder sb = new StringBuilder();
+
+            sb.append(mService.getUser());
+            sb.append(" on ");
+            sb.append(mService.getHost());
+
+            line2 = sb.toString();
+        }
+        else if(mService.getPendingConnectionInfo() == null) {
+            line2 = "No connection info";
+        }
+        else if(!mService.connectionAllowed()) {
+            line2 = "Waiting for allowed network";
+        }
+        else if(mService.isReconnecting()) {
+            line2 = "Reconnecting";
+        }
+        else {
+            line2 = "Not connected";
+        }
+
+        return createTwoLineListItemView(convertView, line1, line2);
+    }
+
+    private View getViewForConnectionTypes(View convertView) {
+        String line1 = null;
+        String line2 = null;
+
+        line1 = "Connection Types";
+
+        boolean mobile = mSettings.getMobileEnabled();
+        boolean wifi = mSettings.getWifiEnabled();
+
+        if(mobile && wifi)
+            line2 = "All";
+        else if(wifi)
+            line2 = "Wifi only";
+        else if(mobile)
+            line2 = "Mobile only";
+        else
+            line2 = "None";
+
+        return createTwoLineListItemView(convertView, line1, line2);
+    }
+
+    private View getViewTransmitter(int pos, View convertView, ViewGroup viewGroup) {
+        String line1 = null;
+        String line2 = null;
+
+        switch(pos) {
+            case 0:
+                return getViewForMode(convertView);
+
+            case 1:
+                return getViewForConnectionTypes(convertView);
+
+            case 2:
+                line1 = "Audio Threshold";
+                line2 = Float.toString(mService.getVADThreshold());
+                break;
+
+            case 3:
+                line1 = "Last Noise";
+                line2 = NoiseTracker.millisecondsToHuman(mService.getNoiseTracker().getLastNoiseHeard());
+                break;
+
+            default:
+                line1 = "Invalid position";
+                line2 = Integer.toString(pos);
+        }
+
+        return createTwoLineListItemView(convertView, line1, line2);
+    }
+
+    private View getViewReceiver(int pos, View convertView, ViewGroup viewGroup) {
+        String line1 = null;
+        String line2 = null;
+
+        switch(pos) {
+            case 0:
+                return getViewForMode(convertView);
+
+            case 1:
+                return getViewForConnectionTypes(convertView);
+
+            case 2:
+                line1 = "Audio Mode";
+
+                boolean isWifi = mService.isWifiNetwork();
+
+                if((isWifi && mSettings.getWifiFullAudioOn()) || (!isWifi && mSettings.getMobileFullAudioOn())) {
+                    line2 = "Full audio";
+                }
+                else {
+                    line2 = "Notification sound only";
+                }
+
+                break;
+
+            default:
+                line1 = "Invalid position";
+                line2 = Integer.toString(pos);
+        }
+
+        return createTwoLineListItemView(convertView, line1, line2);
+    }
+
+    @Override
+    public View getView(int pos, View convertView, ViewGroup viewGroup) {
+        if(mService == null) {
+            return createTwoLineListItemView(convertView, "Mode", "Service not running");
+        }
+        else if(mService.isTransmitterMode()) {
+            return getViewTransmitter(pos, convertView, viewGroup);
+        }
+        else {
+            return getViewReceiver(pos, convertView, viewGroup);
+        }
     }
 
     @Override

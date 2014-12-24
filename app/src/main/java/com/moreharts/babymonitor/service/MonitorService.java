@@ -1,8 +1,12 @@
 package com.moreharts.babymonitor.service;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Handler;
@@ -30,7 +34,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.List;
 
 public class MonitorService extends JumbleService {
     public static final String TAG = "MonitorService";
@@ -38,8 +41,11 @@ public class MonitorService extends JumbleService {
     public static final String MUMBLE_USER_START = "bm";
     public static final String PREF_MUMBLE_CHANNEL = "BabyMonitor";
     public static final String MUMBLE_TOKEN = "com.moreharts.babymonitor";
+    private static final long RECONNECT_DELAY = 10000;
 
     public static final float DEFAULT_THRESHOLD = 0.7f;
+
+    public enum NotificationMode {FULL_AUDIO, NOTIFICATION_SOUND_ONLY, VISUAL_ONLY, NONE};
 
     // Service info and universal settings for RX and TX mode
     private final IBinder mBinder = new LocalBinder();
@@ -48,10 +54,12 @@ public class MonitorService extends JumbleService {
     private int mAudioStream = AudioManager.STREAM_MUSIC;
 
     private Handler mHandler = new Handler();
+    private ConnectivityManager mConnectivityManager = null;
 
     // Local monitor state settings
     private boolean mIsTransmitter = false;
     private float mThreshold = DEFAULT_THRESHOLD;
+    private NotificationMode mSoundMode = NotificationMode.FULL_AUDIO;
 
     private String mDesiredChannelName = null;
     private int mDesiredChannelId = -1;
@@ -62,6 +70,13 @@ public class MonitorService extends JumbleService {
     private TextMessageManager mTextMessageManager = null;
     private RemoteMonitorTracker mRemoteMonitorTracker = null;
 
+    private Settings.OnChangeListener mPreferenceChangeListener = new Settings.OnChangeListener() {
+        @Override
+        public void onChange(Settings settings) {
+            applyCurrentSettings();
+        }
+    };
+
     // People listening to us (they can also bind to the Jumble binder)
     private ArrayList<OnTxModeChangedListener> mTxModeHandlers = new ArrayList<OnTxModeChangedListener>();
     private ArrayList<OnMessageReceivedListener> mMessageHandlers = new ArrayList<OnMessageReceivedListener>();
@@ -70,17 +85,18 @@ public class MonitorService extends JumbleService {
     private ArrayList<OnUserStateListener> mUserHandlers = new ArrayList<OnUserStateListener>();
 
     // Notification
-    NotificationDisplay mNotification = null;
+    NotificationHelper mNotification = null;
 
     // Jumble
-    private Server mConnectedInfo = null;
+    private Server mPendingConnectInfo = null;
 
     private JumbleObserver mJumbleObserver = new JumbleObserver() {
         @Override
         public void onConnected() throws RemoteException {
             Log.i(TAG, "Connected to server");
+
             notifyOnConnectionStatusListenerConnected();
-            ensureCorrectModeSettings();
+            applyCurrentSettings();
         }
 
         @Override
@@ -101,6 +117,19 @@ public class MonitorService extends JumbleService {
                     toast.show();
                 }
             });
+
+            // Attempt to reconnect
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    connectToPending();
+
+                    // Only continue attempting if we're allowed to connect on this type of network
+                    if(connectionAllowed()) {
+                        mHandler.postDelayed(this, RECONNECT_DELAY);
+                    }
+                }
+            }, RECONNECT_DELAY);
         }
 
         @Override
@@ -277,18 +306,44 @@ public class MonitorService extends JumbleService {
         }
     }
 
-    /**
-     * Ensures that everything is set the correct way for the mode we are in.
-     * Will try in the background until everything succeeds.
+    /** Applies the correct settings to Jumble/notifications based on mode,
+     * connection type, and user preferences
      */
-    public void ensureCorrectModeSettings() {
+    private void applyCurrentSettings() {
         if(!isConnected())
             return;
 
         try {
-            // Mumble stuff
-            setDefaultMuteDeafenStatus();
-            setDefaultTxMode();
+            // Mute/deafen state
+            boolean shouldDeafen = false;
+            if(!isTransmitterMode()) {
+                // Receivers may deafen themselves if they only want to receive status
+                // text messages and output their own audio
+                if(isWifiNetwork() && !mSettings.getWifiFullAudioOn())
+                    shouldDeafen = true;
+                else if(!isWifiNetwork() && !mSettings.getMobileFullAudioOn())
+                    shouldDeafen = true;
+            }
+
+            try {
+                // Mute and deafen
+                getBinder().setSelfMuteDeafState(!mIsTransmitter, shouldDeafen);
+            }
+            catch(RemoteException e) {
+                e.printStackTrace();
+            }
+
+            // Transmit style
+            if(isTransmitterMode()) {
+                Log.i(TAG, "Setting to voice activity mode");
+                getBinder().setTransmitMode(Constants.TRANSMIT_VOICE_ACTIVITY);
+            }
+            else {
+                Log.i(TAG, "Setting to PTT mode");
+                getBinder().setTransmitMode(Constants.TRANSMIT_PUSH_TO_TALK);
+            }
+
+            // Voice activity detection
             setVADThreshold(mThreshold);
 
             // Try to get to the correct place
@@ -302,33 +357,64 @@ public class MonitorService extends JumbleService {
             mHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    ensureCorrectModeSettings();
+                    applyCurrentSettings();
                 }
             }, 1000);
         }
     }
 
-    public void setDefaultMuteDeafenStatus() throws RemoteException {
-        getBinder().setSelfMuteDeafState(!mIsTransmitter, false);
-    }
-
-    public void setDeafen() throws RemoteException {
+    public void setDeafen() {
         setDeafen(true);
     }
 
-    public void setDeafen(boolean deafen) throws RemoteException {
-        getBinder().setSelfMuteDeafState(false, deafen);
+    public void setDeafen(boolean deafen) {
+        try {
+            //getBinder().setSelfMuteDeafState(false, deafen);
+            getBinder().getSessionUser().setDeafened(deafen);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void setDefaultTxMode() throws RemoteException {
-        if(mIsTransmitter) {
-            Log.i(TAG, "Setting to voice activity mode");
-            getBinder().setTransmitMode(Constants.TRANSMIT_VOICE_ACTIVITY);
+    public boolean isDefeaned() {
+        try {
+            return getBinder().getSessionUser().isDeafened();
+        } catch (RemoteException e) {
+            e.printStackTrace();
+            return mIsTransmitter;
         }
-        else {
-            Log.i(TAG, "Setting to PTT mode");
-            getBinder().setTransmitMode(Constants.TRANSMIT_PUSH_TO_TALK);
+    }
+
+    private void updateNotificationModeSettings() {
+        switch(mSoundMode) {
+            case FULL_AUDIO:
+                setDeafen(false);
+                break;
+
+            case NOTIFICATION_SOUND_ONLY:
+                setDeafen(true);
+                break;
+
+            case VISUAL_ONLY:
+                setDeafen(true);
+                break;
+
+            case NONE:
+                setDeafen(true);
+                break;
+
+            default:
+                throw new IllegalStateException("Unknown sound mode requested: " + mSoundMode.toString());
         }
+    }
+
+    public void setNotificationMode(NotificationMode mode) {
+        mSoundMode = mode;
+        updateNotificationModeSettings();
+    }
+
+    public NotificationMode setNotificationMode() {
+        return mSoundMode;
     }
 
     // Misc utilities to reach into Jumble
@@ -389,6 +475,25 @@ public class MonitorService extends JumbleService {
         }
     }
 
+    public String getUser() {
+        try {
+            if(isConnected()) {
+                return getBinder().getSessionUser().getName();
+            }
+            else {
+                return mSettings.getUserName();
+            }
+        }
+        catch (NullPointerException e) {
+            e.printStackTrace();
+            return mSettings.getUserName();
+        }
+        catch (RemoteException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     @Override
     public void onCreate() {
         Log.d(TAG, "Monitor service created");
@@ -397,6 +502,7 @@ public class MonitorService extends JumbleService {
 
         // Settings
         mSettings = Settings.getInstance(this);
+        mSettings.addOnChangeListener(mPreferenceChangeListener);
 
         // Jumble Observer
         super.onCreate();
@@ -409,17 +515,21 @@ public class MonitorService extends JumbleService {
 
         // Add helper components. ORDER IS IMPORTANT.
         mTextMessageManager = new TextMessageManager(this);
-        mNoiseTracker = new NoiseTracker(this); // Must come after text message manager
-        mNotification = new NotificationDisplay(this); // Must come after noise tracker
+        mNoiseTracker = new NoiseTracker(this);
+        mNotification = new NotificationHelper(this); // Must come after noise tracker
         mRemoteMonitorTracker = new RemoteMonitorTracker(this); // Must come after text message manager
 
-        // Apply settings appropriately
+        // Load up settings
+        if(mSettings.getMumbleHost() != null) {
+            mPendingConnectInfo = new Server(0, "manual", mSettings.getMumbleHost(), mSettings.getMumblePort(), mSettings.getUserName(), "");
+        }
+
         try {
             setTransmitterMode(mSettings.getIsTxMode());
             setVADThreshold(mSettings.getThreshold());
 
-            if(mSettings.getStartOnBoot() && mSettings.getMumbleHost() != null) {
-                connect(mSettings.getMumbleHost(), mSettings.getMumblePort(), mSettings.getUserName());
+            if(mPendingConnectInfo != null) {
+                connectToPending();
             }
         }
         catch(RemoteException e) {
@@ -446,6 +556,8 @@ public class MonitorService extends JumbleService {
         disconnect();
         stopForeground(true);
 
+        mSettings.removeOnChangeListener(mPreferenceChangeListener);
+
         try {
             getBinder().unregisterObserver(mJumbleObserver);
         }
@@ -469,8 +581,43 @@ public class MonitorService extends JumbleService {
         return mBinder;
     }
 
+    public boolean connectionAllowed() {
+        if(isWifiNetwork()) {
+            return mSettings.getWifiEnabled();
+        }
+        else {
+            return mSettings.getMobileEnabled();
+        }
+    }
+
+    public boolean isWifiNetwork() {
+        if(mConnectivityManager == null)
+            mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo network = mConnectivityManager.getActiveNetworkInfo();
+        if(network == null)
+            return false;
+
+        if(network.getType() == ConnectivityManager.TYPE_WIFI || network.getType() == ConnectivityManager.TYPE_ETHERNET) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    private void connectToPending() {
+        connect(mPendingConnectInfo.getHost(), mPendingConnectInfo.getPort(), mPendingConnectInfo.getUsername());
+    }
+
     public void connect(String host, int port, String user) {
         Server server = new Server(2000, "manual", host, port, user, "");
+        mPendingConnectInfo = server;
+
+        // Only honor request if our settings allow it
+        if(!connectionAllowed()) {
+            return;
+        }
 
         AsyncTask<Server, Void, Void> async = new AsyncTask<Server, Void, Void>() {
             @Override
@@ -488,7 +635,7 @@ public class MonitorService extends JumbleService {
                 connectIntent.putExtra(JumbleService.EXTRAS_CERTIFICATE, mSettings.getCertificate());
                 connectIntent.putExtra(JumbleService.EXTRAS_CERTIFICATE_PASSWORD, "");
 
-                connectIntent.putExtra(JumbleService.EXTRAS_AUTO_RECONNECT, true);
+                connectIntent.putExtra(JumbleService.EXTRAS_AUTO_RECONNECT, false);
                 connectIntent.putExtra(JumbleService.EXTRAS_AUTO_RECONNECT_DELAY, 10);
 
                 connectIntent.putStringArrayListExtra(JumbleService.EXTRAS_ACCESS_TOKENS, new ArrayList<String>(){{
@@ -549,6 +696,13 @@ public class MonitorService extends JumbleService {
     }
 
     /**
+     * Returns the server we are connected/awaiting connection to. Null if there is none set
+     */
+    public Server getPendingConnectionInfo() {
+        return mPendingConnectInfo;
+    }
+
+    /**
      * Returns true if there has been noise heard in the past few seconds,
      * as determined by the NoiseTracker
      * @return true if noise has been heard lately, false otherwise
@@ -560,11 +714,31 @@ public class MonitorService extends JumbleService {
     // Utilities to start and stop monitor
     public static void killMonitor(Context context) {
         // If running, ends the background monitor service
-        context.stopService(new Intent(context, MonitorService.class));
+        context.stopService(getIntent(context));
     }
 
-    public static void startMonitor(Context context) {
-        context.startService(new Intent(context, MonitorService.class));
+    public static void startMonitor(Context context, ServiceConnection binder) {
+        Intent intent = getIntent(context);
+        context.startService(intent);
+
+        if(binder != null)
+            context.bindService(intent, binder, Context.BIND_AUTO_CREATE);
+    }
+
+    /**
+     * Grabs the plain intent to start/bind to this service
+     */
+    public static Intent getIntent(Context context) {
+        return new Intent(context, MonitorService.class);
+    }
+
+    public void onNetworkStateChanged() {
+        Log.d(TAG, "New internet connection detected");
+
+        // IF we have connection info, try!
+        if(mPendingConnectInfo != null) {
+            connectToPending();
+        }
     }
 
     // Listeners

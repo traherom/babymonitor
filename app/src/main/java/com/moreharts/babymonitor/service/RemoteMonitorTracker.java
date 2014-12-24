@@ -15,12 +15,13 @@ import android.widget.TextView;
 import com.moreharts.babymonitor.R;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 /**
  * Keeps track of
  * Created by traherom on 11/26/2014.
  */
-public class RemoteMonitorTracker implements SpinnerAdapter {
+public class RemoteMonitorTracker implements SpinnerAdapter, Iterable<RemoteMonitorTracker.MonitorState> {
     public static final String TAG = "RemoteMonitorTracker";
 
     /**
@@ -33,16 +34,23 @@ public class RemoteMonitorTracker implements SpinnerAdapter {
     private LayoutInflater mInflater = null;
 
     private ArrayList<MonitorState> mRemoteMonitors = new ArrayList<MonitorState>();
+
+    @Override
+    public Iterator<MonitorState> iterator() {
+        return mRemoteMonitors.iterator();
+    }
+
     public class MonitorState {
         private int id;
 
-        private String mUser = null;
-        private long mLastUpdateReceived;
-
         // Actual data
+        private String mUser = null;
         private boolean mIsTx = true;
         private float mThreshold = -1;
         private long mLastNoiseHeard = -1;
+
+        // Internally maintained data
+        private long mLastUpdateReceived = -1;
 
         public MonitorState(String user) {
             mUser = user;

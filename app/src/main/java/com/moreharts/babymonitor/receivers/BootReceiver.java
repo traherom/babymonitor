@@ -1,4 +1,4 @@
-package com.moreharts.babymonitor;
+package com.moreharts.babymonitor.receivers;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -21,9 +21,9 @@ public class BootReceiver extends BroadcastReceiver {
         Log.d(TAG, "Boot complete received");
 
         // Should we start on boot and, if so, which service?
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-        if(sharedPreferences.getBoolean(Settings.PREF_START_ON_BOOT, false)) {
-            MonitorService.startMonitor(context);
+        Settings settings = Settings.getInstance(context);
+        if(settings.getStartOnBoot()) {
+            MonitorService.startMonitor(context, null);
         }
     }
 }

@@ -16,7 +16,7 @@ import com.moreharts.babymonitor.ui.ClientStatus;
  * Manages MonitorService notifications
  * Created by traherom on 11/22/2014.
  */
-public class NotificationDisplay {
+public class NotificationHelper {
     public static final int ONGOING_NOTIFICATION_ID = 2324;
     public static final int NOISE_NOTIFICATION_ID = 2325;
 
@@ -30,7 +30,9 @@ public class NotificationDisplay {
     private Notification mNoiseNotification = null;
     private NotificationManager mNotificationManager;
 
-    public NotificationDisplay(MonitorService service) {
+    private boolean mUseNoiseNotification = true;
+
+    public NotificationHelper(MonitorService service) {
         mService = service;
         mNotificationManager = (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -87,7 +89,7 @@ public class NotificationDisplay {
         rebuildServiceNotification();
 
         // An Rx that has noise gets an extra notification
-        if(!mService.isTransmitterMode() && mService.isThereNoise()) {
+        if(mUseNoiseNotification && !mService.isTransmitterMode() && mService.isThereNoise()) {
             rebuildNoiseNotification();
         }
         else {

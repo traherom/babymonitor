@@ -23,15 +23,10 @@
         android:titleCondensed="@string/switch_to_rx_mode_short"
         android:orderInCategory="100"
         android:showAsAction="never" />
-    <item android:id="@+id/start_on_boot"
-        android:title="Connect on boot"
-        android:orderInCategory="100"
-        android:checkable="true"
-        android:showAsAction="never" />
     <item android:id="@+id/action_settings"
         android:title="@string/action_settings"
         android:orderInCategory="100"
-        android:showAsAction="never" />  <!-- Hide for now, not needed -->
+        android:showAsAction="never" />
     <item android:id="@+id/action_quit"
         android:title="@string/action_quit"
         android:orderInCategory="100"

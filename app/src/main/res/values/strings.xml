@@ -22,23 +22,22 @@
     <string name="pref_monitorMode_default">client</string>
 
     <string-array name="pref_monitorMode_entries">
-        <item>Client</item>
-        <item>Server</item>
+        <item>Receiver</item>
+        <item>Transmitter</item>
     </string-array>
     <string-array name="pref_monitorMode_values">
-        <item>client</item>
-        <item>server</item>
+        <item>rx</item>
+        <item>tx</item>
     </string-array>
 
     <!-- Preference strings -->
     <string name="pref_runOnStartup">Run On Boot</string>
-    <string name="pref_runOnStartupOn_summary">Start Baby Monitor in the background on boot</string>
-    <string name="pref_runOnStartupOff_summary">Do not start Baby Monitor in the background on boot</string>
+    <string name="pref_runOnStartupOn_summary">Run in background when phone starts</string>
+    <string name="pref_runOnStartupOff_summary">Wait for user to launch monitor</string>
 
     <!-- Menu -->
     <string name="soundActivated">Sound Activated</string>
     <string name="alwaysListening">Always On</string>
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="change_server">Change Server</string>
     <string name="switch_to_tx_mode_short">Switch to Tx</string>
     <string name="switch_to_rx_mode_short">Switch to Rx Mode</string>

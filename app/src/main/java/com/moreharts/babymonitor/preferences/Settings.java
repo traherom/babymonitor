@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 
 /**
@@ -26,18 +27,38 @@ public class Settings {
     public static final String PREF_CHANNEL = "mumbleChannel";
     public static final String PREF_PORT = "mumblePort";
     public static final String PREF_USERNAME = "mumbleUser";
+
     public static final String PREF_THRESHOLD = "defaultSensitivity";
     public static final String PREF_VIBRATION = "vibrationOn";
     public static final String PREF_LED = "ledOn";
 
-    private final SharedPreferences preferences;
+    public static final String PREF_ENABLE_MOBILE = "mobileAllowed";
+    public static final String PREF_MOBILE_FULL_AUDIO = "mobileFullAudioOn";
+
+    public static final String PREF_ENABLE_WIFI = "wifiAllowed";
+    public static final String PREF_WIFI_FULL_AUDIO = "wifiFullAudioOn";
+
+    private ArrayList<OnChangeListener> mListeners = new ArrayList<OnChangeListener>();
+    private final SharedPreferences mPreferences;
+    private SharedPreferences.OnSharedPreferenceChangeListener mChangeListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
+        @Override
+        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+            notifyOnChangeListeners();
+        }
+    };
+
+    private static Settings mInstance = null;
 
     public static Settings getInstance(Context context) {
-        return new Settings(context);
+        if(mInstance == null)
+            mInstance = new Settings(context);
+
+        return mInstance;
     }
 
     private Settings(Context ctx) {
-        preferences = PreferenceManager.getDefaultSharedPreferences(ctx);
+        mPreferences = PreferenceManager.getDefaultSharedPreferences(ctx);
+        mPreferences.registerOnSharedPreferenceChangeListener(mChangeListener);
     }
 
     public boolean isFirstRun() {
@@ -50,7 +71,7 @@ public class Settings {
      */
     public byte[] getCertificate() {
         try {
-            FileInputStream inputStream = new FileInputStream(preferences.getString(PREF_CERT, ""));
+            FileInputStream inputStream = new FileInputStream(mPreferences.getString(PREF_CERT, ""));
             byte[] buffer = new byte[inputStream.available()];
             inputStream.read(buffer);
             return buffer;
@@ -67,25 +88,25 @@ public class Settings {
     }
 
     public void setCertificatePath(String path) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putString(PREF_CERT, path);
         editor.apply();
     }
 
     public boolean getIsTxMode() {
-        return preferences.getBoolean(PREF_MODE, true);
+        return mPreferences.getBoolean(PREF_MODE, true);
     }
 
     public void setTxMode(boolean isTx) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putBoolean(PREF_MODE, isTx);
         editor.apply();
     }
 
     public String getUserName() {
-        String user = preferences.getString(PREF_USERNAME, null);
+        String user = mPreferences.getString(PREF_USERNAME, null);
         if(user == null) {
-            user = MonitorService.MUMBLE_USER_START + Math.abs(new Random().nextInt());
+            user = MonitorService.MUMBLE_USER_START + Math.abs(new Random().nextInt(100));
             setUserName(user);
         }
 
@@ -93,81 +114,139 @@ public class Settings {
     }
 
     public void setUserName(String name) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putString(PREF_USERNAME, name);
         editor.apply();
     }
 
     public String getMumbleChannel() {
-        return preferences.getString(PREF_CHANNEL, MonitorService.PREF_MUMBLE_CHANNEL);
+        return mPreferences.getString(PREF_CHANNEL, MonitorService.PREF_MUMBLE_CHANNEL);
     }
 
     public void setMumbleChannel(String channel) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putString(PREF_CHANNEL, channel);
         editor.apply();
     }
 
     public String getMumbleHost() {
-        return preferences.getString(PREF_HOST, null);
+        return mPreferences.getString(PREF_HOST, null);
     }
 
     public int getMumblePort() {
-        return preferences.getInt(PREF_PORT, ServerList.DEFAULT_PORT);
+        return mPreferences.getInt(PREF_PORT, ServerList.DEFAULT_PORT);
     }
 
     public void setMumbleHost(String host) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putString(PREF_HOST, host);
         editor.apply();
     }
 
     public void setMumblePort(int port) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putInt(PREF_PORT, port);
         editor.apply();
     }
 
     public boolean getStartOnBoot() {
-        return preferences.getBoolean(PREF_START_ON_BOOT, true);
+        return mPreferences.getBoolean(PREF_START_ON_BOOT, true);
     }
 
     public void setStartOnBoot(boolean shouldStart) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putBoolean(PREF_START_ON_BOOT, shouldStart);
         editor.apply();
     }
 
     public float getThreshold() {
-        return preferences.getFloat(PREF_THRESHOLD, MonitorService.DEFAULT_THRESHOLD);
+        return mPreferences.getFloat(PREF_THRESHOLD, MonitorService.DEFAULT_THRESHOLD);
     }
 
     public void setThreshold(float thresh) {
         if(thresh < 0 || thresh > 1)
             throw new IllegalArgumentException("Sensitivity must be between 0 and 1");
 
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putFloat(PREF_THRESHOLD, thresh);
         editor.apply();
     }
 
+    public boolean getMobileEnabled() {
+        return mPreferences.getBoolean(PREF_ENABLE_MOBILE, false);
+    }
+
+    public void setMobileEnabled(boolean enabled) {
+        SharedPreferences.Editor editor = mPreferences.edit();
+        editor.putBoolean(PREF_ENABLE_MOBILE, enabled);
+        editor.apply();
+    }
+
+    public boolean getMobileFullAudioOn() {
+        return mPreferences.getBoolean(PREF_MOBILE_FULL_AUDIO, false);
+    }
+
+    public void setMobileFullAudioOn(boolean on) {
+        SharedPreferences.Editor editor = mPreferences.edit();
+        editor.putBoolean(PREF_MOBILE_FULL_AUDIO, on);
+        editor.apply();
+    }
+
+    public boolean getWifiEnabled() {
+        return mPreferences.getBoolean(PREF_ENABLE_WIFI, false);
+    }
+
+    public void setWifiEnabled(boolean enabled) {
+        SharedPreferences.Editor editor = mPreferences.edit();
+        editor.putBoolean(PREF_ENABLE_WIFI, enabled);
+        editor.apply();
+    }
+
+    public boolean getWifiFullAudioOn() {
+        return mPreferences.getBoolean(PREF_WIFI_FULL_AUDIO, false);
+    }
+
+    public void setWifiFullAudioOn(boolean on) {
+        SharedPreferences.Editor editor = mPreferences.edit();
+        editor.putBoolean(PREF_WIFI_FULL_AUDIO, on);
+        editor.apply();
+    }
+
     public boolean isVibrationOn() {
-        return preferences.getBoolean(PREF_VIBRATION, false);
+        return mPreferences.getBoolean(PREF_VIBRATION, false);
     }
 
     public void setVibrationOn(boolean vibrate) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putBoolean(PREF_VIBRATION, vibrate);
         editor.apply();
     }
 
     public boolean isLEDOn() {
-        return preferences.getBoolean(PREF_LED, true);
+        return mPreferences.getBoolean(PREF_LED, true);
     }
 
     public void setLEDOn(boolean vibrate) {
-        SharedPreferences.Editor editor = preferences.edit();
+        SharedPreferences.Editor editor = mPreferences.edit();
         editor.putBoolean(PREF_LED, vibrate);
         editor.apply();
+    }
+
+    public interface OnChangeListener {
+        public void onChange(Settings settings);
+    }
+
+    public void addOnChangeListener(OnChangeListener listener) {
+        mListeners.add(listener);
+    }
+
+    public void removeOnChangeListener(OnChangeListener listener) {
+        mListeners.remove(listener);
+    }
+
+    private void notifyOnChangeListeners() {
+        for(OnChangeListener listener : mListeners) {
+            listener.onChange(this);
+        }
     }
 }

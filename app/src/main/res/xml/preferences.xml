@@ -3,10 +3,17 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <SwitchPreference
         android:key="isTransmitterMode"
-        android:title="Monitor Mode"
-        android:summaryOn="Transmitter"
-        android:summaryOff="Receiver"
+        android:title="Transmitter Mode"
+        android:summaryOn="Will transmitter sound"
+        android:summaryOff="Will receive sound"
         android:defaultValue="false" />
+
+    <SwitchPreference
+        android:key="runOnBoot"
+        android:title="@string/pref_runOnStartup"
+        android:summaryOn="@string/pref_runOnStartupOn_summary"
+        android:summaryOff="@string/pref_runOnStartupOff_summary"
+        android:defaultValue="true" />
 
     <PreferenceCategory
         android:title="Mumble">
@@ -33,23 +40,48 @@
     </PreferenceCategory>
 
     <PreferenceCategory
-        android:title="Connection"
-        android:key="connection">
+        android:title="WiFi">
 
         <SwitchPreference
-            android:key="runOnBoot"
-            android:title="@string/pref_runOnStartup"
-            android:summaryOn="@string/pref_runOnStartupOn_summary"
-            android:summaryOff="@string/pref_runOnStartupOff_summary"
-            android:defaultValue="true" />
+            android:key="wifiAllowed"
+            android:title="Connect over Wifi"
+            android:summaryOn="Connect to server when on wifi"
+            android:summaryOff="Do not use wifi to connect"
+            android:defaultValue="true"
+            />
 
-        <!-- TODO: This could be a setting that allows "None," "Notification only," or "All?" -->
+
         <SwitchPreference
-            android:key="allowCellular"
-            android:title="Data Usage"
-            android:summaryOn="Cellular data allowed"
-            android:summaryOff="Wifi Only"
-            android:defaultValue="true" />
+            android:key="wifiFullAudioOn"
+            android:dependency="wifiAllowed"
+            android:title="Full Audio"
+            android:summaryOn="Play detected audio"
+            android:summaryOff="Use notification only when noise detected"
+            android:defaultValue="true">
+        </SwitchPreference>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Mobile Data">
+
+        <SwitchPreference
+            android:key="mobileAllowed"
+            android:title="Connect over mobile"
+            android:summaryOn="Use mobile data for connection"
+            android:summaryOff="Do not use mobile data"
+            android:defaultValue="false"
+            />
+
+
+        <SwitchPreference
+            android:key="mobileFullAudioOn"
+            android:dependency="mobileAllowed"
+            android:title="Full Audio"
+            android:summaryOn="Play detected audio"
+            android:summaryOff="Use notification only when noise detected"
+            android:defaultValue="false">
+        </SwitchPreference>
 
     </PreferenceCategory>
 
@@ -70,8 +102,9 @@
             android:summaryOff="No LED on noise"
             android:defaultValue="true" />
 
+        <!-- Change to ringtone picker -->
         <SwitchPreference
-            android:key="soundOn"
+            android:key="notificationSound"
             android:title="Notification Sound Override"
             android:summaryOn="Play notification sound on noise"
             android:summaryOff="Play detected audio"
@@ -80,13 +113,6 @@
                     <extra android:name="android.intent.extra.ringtone.TYPE" android:value="2" />
                     <!--<extra android:name="android.intent.extra.ringtone.TITLE" android:value="" />-->
                 </intent>
-            <!--
-            Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
-            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION);
-            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Tone");
-            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, (Uri) null);
-            this.startActivityForResult(intent, 5);
-            -->
             </SwitchPreference>
 
     </PreferenceCategory>

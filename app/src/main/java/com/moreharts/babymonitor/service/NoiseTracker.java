@@ -21,42 +21,49 @@ public class NoiseTracker {
     private long mNoiseTimeoutLength = DEFAULT_NOISE_TIMEOUT_LENGTH;
 
     private boolean mThereIsNoise = false;
-    private long mAbsoluteLastNoiseHeard = -1;
+    private long mLocalAbsoluteLastNoiseHeard = SystemClock.elapsedRealtime();
+    private long mRemoteAbsoluteLastNoiseHeard = SystemClock.elapsedRealtime();
 
     private Handler mHandler = new Handler();
     private MonitorService.OnUserStateListener mUserStateListener = new MonitorService.OnUserStateListener() {
         @Override
         public void onUserTalk(MonitorService service, User user) {
-            mAbsoluteLastNoiseHeard = SystemClock.elapsedRealtime();
+            long curr = SystemClock.elapsedRealtime();
+            mLocalAbsoluteLastNoiseHeard = curr;
         }
     };
 
-    private TextMessageManager.OnStateMessageListener mStateListener = new TextMessageManager.OnStateMessageListener() {
+    private RemoteMonitorTracker.OnRemoteMonitorUpdateListener mRemoteListener = new RemoteMonitorTracker.OnRemoteMonitorUpdateListener() {
         @Override
-        public void onStateMessageReceived(MonitorService service, String user, boolean isTxMode, float threshold, long relativeLastNoiseHeard) {
-            // New noise from this tx?
-            if(isTxMode) {
-                long currentTime = SystemClock.elapsedRealtime();
+        public void onRemoteMonitorAdded(RemoteMonitorTracker.MonitorState monitor) {
+            // Ignore
+        }
 
-                // There could be multiple TXs out there. Our last noise heard is based
-                // on the most recent noise. Also, lastNoiseHeard in this context is based on
-                long convertedLastHeard = currentTime - relativeLastNoiseHeard;
-                if(mAbsoluteLastNoiseHeard < convertedLastHeard) {
-                    mAbsoluteLastNoiseHeard = convertedLastHeard;
-                }
+        @Override
+        public void onRemoteMonitorRemoved(RemoteMonitorTracker.MonitorState monitor) {
+            // Ignore
+        }
 
-                checkForNoiseStateChange(currentTime);
+        @Override
+        public void onRemoteMonitorUpdated(RemoteMonitorTracker.MonitorState monitor) {
+            long curr = SystemClock.elapsedRealtime();
+
+            // Are they making noise that's newer than the latest we've heard?
+            if(curr - monitor.getLastNoiseHeard() > mRemoteAbsoluteLastNoiseHeard) {
+                mRemoteAbsoluteLastNoiseHeard = curr - monitor.getLastNoiseHeard();
             }
+
+            checkForNoiseStateChange(curr, mRemoteAbsoluteLastNoiseHeard);
         }
     };
 
-    private Runnable mTxNoiseRunnable = new Runnable() {
+    private Runnable mLocalNoiseRunnable = new Runnable() {
         @Override
         public void run() {
             // Determine if there is a change to the noise state and refresh notification
             // It would be more accurate to refresh the notification immediately in onUserTalk
             // for when noise is heard, but it would lead to a lot of unnecessary rebuilding
-            checkForNoiseStateChange(SystemClock.elapsedRealtime());
+            checkForNoiseStateChange(SystemClock.elapsedRealtime(), mLocalAbsoluteLastNoiseHeard);
 
             // Run again soon
             mHandler.postDelayed(this, DEFAULT_NOISE_TIMEOUT_LENGTH/2);
@@ -95,25 +102,35 @@ public class NoiseTracker {
 
     private void startTx() {
         // Perform our own tracking of noise
-        mHandler.postDelayed(mTxNoiseRunnable, 1000);
+        mHandler.postDelayed(mLocalNoiseRunnable, 1000);
         getService().addOnUserStateListener(mUserStateListener);
     }
 
     private void stopTx() {
-        mHandler.removeCallbacks(mTxNoiseRunnable);
+        mHandler.removeCallbacks(mLocalNoiseRunnable);
         getService().removeOnUserStateListener(mUserStateListener);
     }
 
     private void startRx() {
-        mService.getTextMessageManager().addOnStateMessageListener(mStateListener);
+        // Keep trying to do set up until we succeed. (waiting for remote monitor to exist)
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (mService.getRemoteMonitorTracker() != null)
+                    mService.getRemoteMonitorTracker().addOnRemoteMonitorUpdateListener(mRemoteListener);
+                else
+                    mHandler.postDelayed(this, 500);
+            }
+        }, 100);
     }
 
     private void stopRx() {
-        mService.getTextMessageManager().removeOnStateMessageListener(mStateListener);
+        mService.getRemoteMonitorTracker().removeOnRemoteMonitorUpdateListener(mRemoteListener);
     }
 
-    private void checkForNoiseStateChange(long currentTime) {
-        long diff = currentTime - mAbsoluteLastNoiseHeard;
+    private synchronized void checkForNoiseStateChange(long currentTime, long last) {
+        long diff = currentTime - last;
+
         boolean isNoise = (diff < mNoiseTimeoutLength);
 
         if(isNoise != mThereIsNoise) {
@@ -137,15 +154,71 @@ public class NoiseTracker {
         return mService;
     }
 
+    /**
+     * Returns if there is noise locally if we are a transmitter or remotely if we are
+     * a receiver.
+     */
     public boolean isThereNoise() {
+        if(mService.isTransmitterMode())
+            return isThereRemoteNoise();
+        else
+            return isThereLocalNoise();
+    }
+
+    public boolean isThereLocalNoise() {
         return mThereIsNoise;
     }
 
-    public long getLastNoiseHeard() {
-        if(mAbsoluteLastNoiseHeard < 0)
-            return -1;
+    public boolean isThereRemoteNoise() {
+        for(RemoteMonitorTracker.MonitorState state : mService.getRemoteMonitorTracker()) {
+            if(state.getLastNoiseHeard() < mNoiseTimeoutLength)
+                return true;
+        }
 
-        return SystemClock.elapsedRealtime() - mAbsoluteLastNoiseHeard;
+        return false;
+    }
+
+    public long getLastNoiseHeard() {
+        if(mService.isTransmitterMode()) {
+            return SystemClock.elapsedRealtime() - mLocalAbsoluteLastNoiseHeard;
+        }
+        else {
+            return SystemClock.elapsedRealtime() - mRemoteAbsoluteLastNoiseHeard;
+        }
+    }
+
+    /**
+     * Converts the given time in milliseconds to a human-friendly format of
+     * seconds, minutes, hours, etc as appropriate
+     */
+    public static String millisecondsToHuman(long milli) {
+        final long SECONDS_CONV = 1000;
+        final long MINUTES_CONV = SECONDS_CONV * 60;
+        final long HOURS_CONV = MINUTES_CONV * 60;
+
+        StringBuilder sb = new StringBuilder();
+        if(milli < MINUTES_CONV) {
+            sb.append(milli / SECONDS_CONV);
+            sb.append(" second");
+            if(milli != SECONDS_CONV)
+                sb.append('s');
+        }
+        else if(milli < HOURS_CONV) {
+            sb.append(milli / MINUTES_CONV);
+            sb.append(" minute");
+            if(milli != MINUTES_CONV)
+                sb.append('s');
+        }
+        else {
+            sb.append(milli / HOURS_CONV);
+            sb.append(" hour");
+            if(milli != HOURS_CONV)
+                sb.append('s');
+        }
+
+        sb.append(" ago");
+
+        return sb.toString();
     }
 
     // Listener management

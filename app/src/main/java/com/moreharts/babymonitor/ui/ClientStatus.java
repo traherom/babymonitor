@@ -139,7 +139,6 @@ public class ClientStatus extends FragmentActivity implements
     private MenuItem disconnectMenuItem = null;
     private MenuItem switchToRxMenuItem = null;
     private MenuItem switchToTxMenuItem = null;
-    private MenuItem startOnBootMenuItem = null;
 
     // Dynamic server list and settings
     private Settings mSettings;
@@ -316,7 +315,7 @@ public class ClientStatus extends FragmentActivity implements
         //mServerList.startServiceDiscovery();
 
         // Start background service
-        MonitorService.startMonitor(this);
+        MonitorService.startMonitor(this, null);
     }
 
     @Override
@@ -324,7 +323,7 @@ public class ClientStatus extends FragmentActivity implements
         super.onStart();
 
         // Bind to background service
-        bindService(new Intent(this, MonitorService.class), mServiceConn, Context.BIND_AUTO_CREATE);
+        bindService(MonitorService.getIntent(this), mServiceConn, Context.BIND_AUTO_CREATE);
     }
 
     @Override
@@ -353,7 +352,6 @@ public class ClientStatus extends FragmentActivity implements
         changeServerMenuItem = menu.findItem(R.id.change_server);
         switchToRxMenuItem = menu.findItem(R.id.switch_to_rx);
         switchToTxMenuItem = menu.findItem(R.id.switch_to_tx);
-        startOnBootMenuItem = menu.findItem(R.id.start_on_boot);
 
         refreshOptionsMenuVisibility();
 
@@ -386,9 +384,6 @@ public class ClientStatus extends FragmentActivity implements
             switchToRxMenuItem.setVisible(false);
             switchToTxMenuItem.setVisible(true);
         }
-
-        // Boot mode?
-        startOnBootMenuItem.setChecked(mSettings.getStartOnBoot());
     }
 
     @Override
@@ -419,19 +414,6 @@ public class ClientStatus extends FragmentActivity implements
             case R.id.change_server:
                 // Show host selection dialog
                 showManualServerDialog();
-                return true;
-            case R.id.start_on_boot:
-                // Toggle boot setting
-                if(startOnBootMenuItem.isChecked()) {
-                    // Disable
-                    startOnBootMenuItem.setChecked(false);
-                    mSettings.setStartOnBoot(false);
-                }
-                else {
-                    // Enable
-                    startOnBootMenuItem.setChecked(true);
-                    mSettings.setStartOnBoot(true);
-                }
                 return true;
             case R.id.action_quit:
                 disconnect();
@@ -490,16 +472,6 @@ public class ClientStatus extends FragmentActivity implements
 
     @Override
     public void onMuteRequested(boolean mute) {
-        try {
-            if (mService.isConnected()) {
-                if (mute)
-                    mService.setDeafen();
-                else
-                    mService.setDefaultMuteDeafenStatus();
-            }
-        }
-        catch(RemoteException e) {
-            e.printStackTrace();
-        }
+        mService.setDeafen(mute);
     }
 }
