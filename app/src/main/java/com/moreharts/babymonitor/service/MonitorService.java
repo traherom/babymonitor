@@ -385,38 +385,6 @@ public class MonitorService extends JumbleService {
         }
     }
 
-    private void updateNotificationModeSettings() {
-        switch(mSoundMode) {
-            case FULL_AUDIO:
-                setDeafen(false);
-                break;
-
-            case NOTIFICATION_SOUND_ONLY:
-                setDeafen(true);
-                break;
-
-            case VISUAL_ONLY:
-                setDeafen(true);
-                break;
-
-            case NONE:
-                setDeafen(true);
-                break;
-
-            default:
-                throw new IllegalStateException("Unknown sound mode requested: " + mSoundMode.toString());
-        }
-    }
-
-    public void setNotificationMode(NotificationMode mode) {
-        mSoundMode = mode;
-        updateNotificationModeSettings();
-    }
-
-    public NotificationMode setNotificationMode() {
-        return mSoundMode;
-    }
-
     // Misc utilities to reach into Jumble
     public String getHost() {
         try {

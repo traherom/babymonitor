@@ -1,4 +1,4 @@
-package com.moreharts.babymonitor.service;
+package com.moreharts.babymonitor.ui;
 
 import android.content.Context;
 import android.database.DataSetObservable;
@@ -13,6 +13,9 @@ import android.view.ViewGroup;
 import android.widget.ListAdapter;
 import android.widget.TextView;
 
+import com.moreharts.babymonitor.service.MonitorService;
+import com.moreharts.babymonitor.service.NoiseTracker;
+import com.moreharts.babymonitor.service.RemoteMonitorTracker;
 import com.morlunk.jumble.model.User;
 import com.morlunk.jumble.util.JumbleObserver;
 

@@ -10,7 +10,6 @@ import android.view.ViewGroup;
 
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.service.MonitorService;
-import com.moreharts.babymonitor.service.LocalStatusAdapter;
 
 /**
  * A simple {@link Fragment} subclass.

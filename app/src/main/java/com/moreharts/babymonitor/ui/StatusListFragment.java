@@ -12,7 +12,6 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.moreharts.babymonitor.R;
-import com.moreharts.babymonitor.service.LocalStatusAdapter;
 
 /**
  * A fragment representing a list of Items.

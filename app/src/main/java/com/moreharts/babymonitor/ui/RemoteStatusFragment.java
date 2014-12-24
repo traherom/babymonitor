@@ -4,19 +4,15 @@ import android.app.Activity;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 
 import com.moreharts.babymonitor.R;
-import com.moreharts.babymonitor.service.LocalStatusAdapter;
 import com.moreharts.babymonitor.service.MonitorService;
 import com.moreharts.babymonitor.service.RemoteMonitorTracker;
-import com.moreharts.babymonitor.service.RemoteStatusAdapter;
 
 /**
  * A simple {@link Fragment} subclass.
