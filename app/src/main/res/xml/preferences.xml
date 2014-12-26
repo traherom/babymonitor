@@ -3,16 +3,16 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <SwitchPreference
         android:key="isTransmitterMode"
-        android:title="Transmitter Mode"
-        android:summaryOn="Will transmitter sound"
-        android:summaryOff="Will receive sound"
+        android:title="@string/tx_mode"
+        android:summaryOn="@string/tx_mode_on"
+        android:summaryOff="@string/tx_mode_off"
         android:defaultValue="false" />
 
     <SwitchPreference
         android:key="runOnBoot"
-        android:title="@string/pref_runOnStartup"
-        android:summaryOn="@string/pref_runOnStartupOn_summary"
-        android:summaryOff="@string/pref_runOnStartupOff_summary"
+        android:title="@string/run_on_boot"
+        android:summaryOn="@string/run_on_boot_desc"
+        android:summaryOff="@string/no_run_on_boot_desc"
         android:defaultValue="true" />
 
     <PreferenceCategory
@@ -20,22 +20,22 @@
 
         <com.moreharts.babymonitor.preferences.ServerSelectionDialogPreference
             android:key="mumbleHostSettings"
-            android:title="Server"
-            android:summary="Host"
-            android:dialogTitle="Server"
+            android:title="@string/mumble_host"
+            android:summary="@string/mumble_host_desc"
+            android:dialogTitle="@string/mumble_host"
             android:persistent="false" />
 
         <EditTextPreference
             android:key="mumbleUser"
-            android:title="Username"
-            android:summary="Mumble username"
-            android:dialogTitle="Mumble username" />
+            android:title="@string/mumble_user"
+            android:summary="@string/mumble_user_desc"
+            android:dialogTitle="@string/mumble_user" />
 
         <EditTextPreference
             android:key="mumbleChannel"
-            android:title="Channel"
-            android:summary="Join X on connect"
-            android:dialogTitle="Mumble Channel" />
+            android:title="@string/mumble_channel"
+            android:summary="@string/mumble_channel_desc"
+            android:dialogTitle="@string/mumble_channel" />
 
     </PreferenceCategory>
 
@@ -44,9 +44,9 @@
 
         <SwitchPreference
             android:key="wifiAllowed"
-            android:title="Connect over Wifi"
-            android:summaryOn="Connect to server when on wifi"
-            android:summaryOff="Do not use wifi to connect"
+            android:title="@string/use_wifi"
+            android:summaryOn="@string/use_wifi_desc"
+            android:summaryOff="@string/no_wifi_desc"
             android:defaultValue="true"
             />
 
@@ -54,9 +54,9 @@
         <SwitchPreference
             android:key="wifiFullAudioOn"
             android:dependency="wifiAllowed"
-            android:title="Full Audio"
-            android:summaryOn="Play detected audio"
-            android:summaryOff="Use notification only when noise detected"
+            android:title="@string/full_audio"
+            android:summaryOn="@string/full_audio_desc"
+            android:summaryOff="@string/notification_only_desc"
             android:defaultValue="true">
         </SwitchPreference>
 
@@ -67,9 +67,9 @@
 
         <SwitchPreference
             android:key="mobileAllowed"
-            android:title="Connect over mobile"
-            android:summaryOn="Use mobile data for connection"
-            android:summaryOff="Do not use mobile data"
+            android:title="@string/use_mobile"
+            android:summaryOn="@string/use_mobile_desc"
+            android:summaryOff="@string/no_mobile_desc"
             android:defaultValue="false"
             />
 
@@ -77,9 +77,9 @@
         <SwitchPreference
             android:key="mobileFullAudioOn"
             android:dependency="mobileAllowed"
-            android:title="Full Audio"
-            android:summaryOn="Play detected audio"
-            android:summaryOff="Use notification only when noise detected"
+            android:title="@string/full_audio"
+            android:summaryOn="@string/full_audio_desc"
+            android:summaryOff="@string/notification_only_desc"
             android:defaultValue="false">
         </SwitchPreference>
 
@@ -90,8 +90,8 @@
 
         <RingtonePreference
             android:key="notificationUri"
-            android:title="Notification Sound"
-            android:summary="Sound to play if not using full audio"
+            android:title="@string/notification_sound"
+            android:summary="@string/notification_sound_desc"
             android:ringtoneType="notification"
             android:showDefault="true"
             android:showSilent="true"
@@ -100,16 +100,16 @@
 
         <SwitchPreference
             android:key="vibrationOn"
-            android:title="Vibrate"
+            android:title="@string/use_vibration"
             android:summaryOn="Vibrate on noise"
             android:summaryOff="No vibration on noise"
             android:defaultValue="false" />
 
         <SwitchPreference
             android:key="ledOn"
-            android:title="LED"
-            android:summaryOn="Blink LED on noise"
-            android:summaryOff="No LED on noise"
+            android:title="@string/use_led"
+            android:summaryOn="@string/use_led_desc"
+            android:summaryOff="@string/no_led_desc"
             android:defaultValue="true" />
 
     </PreferenceCategory>

@@ -31,9 +31,33 @@
     </string-array>
 
     <!-- Preference strings -->
-    <string name="pref_runOnStartup">Run On Boot</string>
-    <string name="pref_runOnStartupOn_summary">Run in background when phone starts</string>
-    <string name="pref_runOnStartupOff_summary">Wait for user to launch monitor</string>
+    <string name="run_on_boot">Run on Boot</string>
+    <string name="run_on_boot_desc">Run in background when phone starts</string>
+    <string name="no_run_on_boot_desc">Wait for user to launch monitor</string>
+    <string name="full_audio">Full Audio</string>
+    <string name="full_audio_desc">Play detected audio</string>
+    <string name="notification_only_desc">Use notification only when noise detected</string>
+    <string name="use_mobile_desc">Use mobile data for connection</string>
+    <string name="no_mobile_desc">Do not use mobile data</string>
+    <string name="use_mobile">Connect over mobile</string>
+    <string name="notification_sound">Notification Sound</string>
+    <string name="notification_sound_desc">Sound to play if not using full audio</string>
+    <string name="use_vibration">Vibrate</string>
+    <string name="use_led">LED</string>
+    <string name="use_led_desc">Blink LED on noise</string>
+    <string name="no_led_desc">No LED on noise</string>
+    <string name="use_wifi">Connect over Wifi</string>
+    <string name="use_wifi_desc">Connect to server when on wifi</string>
+    <string name="no_wifi_desc">Do not use wifi to connect</string>
+    <string name="mumble_host">Server</string>
+    <string name="mumble_host_desc">Host</string>
+    <string name="mumble_user">Username</string>
+    <string name="mumble_user_desc">Mumble username</string>
+    <string name="mumble_channel">Channel</string>
+    <string name="mumble_channel_desc">Join X on connect</string>
+    <string name="tx_mode">Transmitter Mode</string>
+    <string name="tx_mode_on">Will transmitter sound</string>
+    <string name="tx_mode_off">Will receive sound</string>
 
     <!-- Menu -->
     <string name="soundActivated">Sound Activated</string>
