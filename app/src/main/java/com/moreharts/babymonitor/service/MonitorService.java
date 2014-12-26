@@ -115,22 +115,22 @@ public class MonitorService extends JumbleService {
             Log.i(TAG, "Connection error: " + message);
             notifyOnConnectionStatusListenerConnectionError(message, reconnecting);
 
-            mMainHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    StringBuilder sb = new StringBuilder("Baby Monitor connection failed (");
-                    sb.append(mRetryCount);
-                    sb.append('/');
-                    sb.append(RETRY_LIMIT);
-                    sb.append(" retries)");
+            // Attempt to reconnect if we are on a valid network connection
+            if(connectionAllowed() && mRetryCount < RETRY_LIMIT) {
+                mMainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        StringBuilder sb = new StringBuilder("Baby Monitor connection failed (");
+                        sb.append(mRetryCount);
+                        sb.append('/');
+                        sb.append(RETRY_LIMIT);
+                        sb.append(" retries)");
 
-                    Toast toast = Toast.makeText(MonitorService.this, sb.toString(), Toast.LENGTH_SHORT);
-                    toast.show();
-                }
-            });
+                        Toast toast = Toast.makeText(MonitorService.this, sb.toString(), Toast.LENGTH_SHORT);
+                        toast.show();
+                    }
+                });
 
-            // Attempt to reconnect
-            if(mRetryCount < RETRY_LIMIT) {
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -315,8 +315,18 @@ public class MonitorService extends JumbleService {
      */
     public void joinBabyMonitorChannel() throws RemoteException {
         if(isConnected()) {
-            if(mDesiredChannelId > 0) {
+            /*if(mDesiredChannelId > 0) {
                 getBinder().joinChannel(mDesiredChannelId);
+            }*/
+
+            // Search for it
+            String desired = mSettings.getMumbleChannel();
+            for(int chan : getBinder().getRootChannel().getSubchannels()) {
+                if(getBinder().getChannel(chan).getName().startsWith(desired)) {
+                    Log.i(TAG, "Found channel " + desired + ", joining");
+                    getBinder().joinChannel(chan);
+                    break;
+                }
             }
         }
         else {
@@ -608,6 +618,10 @@ public class MonitorService extends JumbleService {
     public void connect(String host, int port, String user) {
         Server server = new Server(2000, "manual", host, port, user, "");
         mPendingConnectInfo = server;
+
+        // Save the host and port for future use
+        mSettings.setMumbleHost(host);
+        mSettings.setMumblePort(port);
 
         // Only honor request if our settings allow it
         if(!connectionAllowed()) {

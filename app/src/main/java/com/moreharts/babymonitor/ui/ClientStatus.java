@@ -111,10 +111,6 @@ public class ClientStatus extends FragmentActivity implements
             // UI updates?
             refreshOptionsMenuVisibility();
 
-            // Save the host and port for future use
-            mSettings.setMumbleHost(mService.getHost());
-            mSettings.setMumblePort(mService.getPort());
-
             // Ensure the mute status matches our button
             //mService.setDeafen(mClientControlFragment.getMute());
         }
