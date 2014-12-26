@@ -88,6 +88,16 @@
     <PreferenceCategory
         android:title="Notifications">
 
+        <RingtonePreference
+            android:key="notificationUri"
+            android:title="Notification Sound"
+            android:summary="Sound to play if not using full audio"
+            android:ringtoneType="notification"
+            android:showDefault="true"
+            android:showSilent="true"
+            android:defaultValue="content://settings/system/notification_sound"
+            />
+
         <SwitchPreference
             android:key="vibrationOn"
             android:title="Vibrate"
@@ -101,19 +111,6 @@
             android:summaryOn="Blink LED on noise"
             android:summaryOff="No LED on noise"
             android:defaultValue="true" />
-
-        <!-- Change to ringtone picker -->
-        <SwitchPreference
-            android:key="notificationSound"
-            android:title="Notification Sound Override"
-            android:summaryOn="Play notification sound on noise"
-            android:summaryOff="Play detected audio"
-            android:defaultValue="false">
-                <intent android:action="android.intent.action.RINGTONE_PICKER">
-                    <extra android:name="android.intent.extra.ringtone.TYPE" android:value="2" />
-                    <!--<extra android:name="android.intent.extra.ringtone.TITLE" android:value="" />-->
-                </intent>
-            </SwitchPreference>
 
     </PreferenceCategory>
 
