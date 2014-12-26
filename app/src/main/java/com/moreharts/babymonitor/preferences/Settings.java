@@ -1,7 +1,10 @@
 package com.moreharts.babymonitor.preferences;
 
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.preference.PreferenceManager;
 
 import com.moreharts.babymonitor.service.MonitorService;
@@ -31,6 +34,7 @@ public class Settings {
     public static final String PREF_THRESHOLD = "defaultSensitivity";
     public static final String PREF_VIBRATION = "vibrationOn";
     public static final String PREF_LED = "ledOn";
+    private static final String PREF_NOTIFICATION_SOUND = "notificationUri";
 
     public static final String PREF_ENABLE_MOBILE = "mobileAllowed";
     public static final String PREF_MOBILE_FULL_AUDIO = "mobileFullAudioOn";
@@ -230,6 +234,14 @@ public class Settings {
         SharedPreferences.Editor editor = mPreferences.edit();
         editor.putBoolean(PREF_LED, vibrate);
         editor.apply();
+    }
+
+    public Uri getNotificationSound() {
+        String found = mPreferences.getString(PREF_NOTIFICATION_SOUND, null);
+        if(found != null)
+            return Uri.parse(found);
+        else
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
     }
 
     public interface OnChangeListener {

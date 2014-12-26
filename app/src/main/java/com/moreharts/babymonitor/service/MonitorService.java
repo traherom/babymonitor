@@ -46,8 +46,6 @@ public class MonitorService extends JumbleService {
 
     public static final float DEFAULT_THRESHOLD = 0.7f;
 
-    public enum NotificationMode {FULL_AUDIO, NOTIFICATION_SOUND_ONLY, VISUAL_ONLY, NONE};
-
     // Service info and universal settings for RX and TX mode
     private final IBinder mBinder = new LocalBinder();
     private Settings mSettings = null;
@@ -63,7 +61,6 @@ public class MonitorService extends JumbleService {
 
     private int mRetryCount = 0;
 
-    private String mDesiredChannelName = null;
     private int mDesiredChannelId = -1;
 
     // Helpers
@@ -139,11 +136,6 @@ public class MonitorService extends JumbleService {
                     public void run() {
                         mRetryCount++;
                         connectToPending();
-
-                        // Only continue attempting if we're allowed to connect on this type of network
-                        //if(connectionAllowed()) {
-                        //    mHandler.postDelayed(this, RECONNECT_DELAY);
-                        //}
                     }
                 }, RECONNECT_DELAY);
             }
@@ -222,17 +214,17 @@ public class MonitorService extends JumbleService {
             Log.i(TAG, "permission denied: " + reason);
         }
 
-
         @Override
         public void onChannelAdded(Channel channel) throws RemoteException {
-            if(mDesiredChannelName != null && channel.getName().equals(mDesiredChannelName)) {
+            Log.d(TAG, "Channel added: " + channel.getName());
+            if(channel.getName().equals(mSettings.getMumbleChannel())) {
                 mDesiredChannelId = channel.getId();
             }
         }
 
         @Override
         public void onChannelRemoved(Channel channel) throws RemoteException {
-            if(mDesiredChannelName == null || channel.getName().equals(mDesiredChannelName)) {
+            if(channel.getName().equals(mSettings.getMumbleChannel())) {
                 mDesiredChannelId = -1;
             }
         }
@@ -373,7 +365,6 @@ public class MonitorService extends JumbleService {
             setVADThreshold(mThreshold);
 
             // Try to get to the correct place
-            mDesiredChannelName = mSettings.getMumbleChannel();
             joinBabyMonitorChannel();
         }
         catch (RemoteException e) {

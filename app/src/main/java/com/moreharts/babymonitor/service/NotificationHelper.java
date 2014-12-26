@@ -159,7 +159,7 @@ public class NotificationHelper {
         if(mSettings.isLEDOn())
             builder.setLights(Color.BLUE, 1000, 1000);
         if(!mService.shouldPlayFullAudio()) {
-            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            Uri sound = mSettings.getNotificationSound();
             builder.setSound(sound);
         }
 
