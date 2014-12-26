@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.support.v4.app.NotificationCompat;
 
 import com.moreharts.babymonitor.R;
@@ -156,6 +158,10 @@ public class NotificationHelper {
             builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
         if(mSettings.isLEDOn())
             builder.setLights(Color.BLUE, 1000, 1000);
+        if(!mService.shouldPlayFullAudio()) {
+            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            builder.setSound(sound);
+        }
 
         // Keep it from being annoying
         builder.setOnlyAlertOnce(true);

@@ -150,7 +150,7 @@ public class RemoteMonitorTracker implements SpinnerAdapter, Iterable<RemoteMoni
                 long tooLongAgo = SystemClock.elapsedRealtime() - MONITOR_TIMEOUT;
 
                 for(MonitorState monitor : mRemoteMonitors) {
-                    if(monitor.getLastNoiseHeard() <= tooLongAgo) {
+                    if(monitor.getLastUpdate() <= tooLongAgo) {
                         Log.d(TAG, monitor.getUser() + " has timed out");
                         mRemoteMonitors.remove(monitor.getUser());
                         notifyOnRemoteMonitorRemoved(monitor);

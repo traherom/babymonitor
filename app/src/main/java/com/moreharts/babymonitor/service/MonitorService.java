@@ -574,6 +574,16 @@ public class MonitorService extends JumbleService {
         }
     }
 
+    /**
+     * Helper to determine if audio should be played based on user settings and the current network
+     */
+    public boolean shouldPlayFullAudio() {
+        if((isWifiNetwork() && mSettings.getWifiFullAudioOn()) || (!isWifiNetwork() && mSettings.getMobileFullAudioOn()))
+            return true;
+        else
+            return false;
+    }
+
     private void connectToPending() {
         connect(mPendingConnectInfo.getHost(), mPendingConnectInfo.getPort(), mPendingConnectInfo.getUsername());
     }
