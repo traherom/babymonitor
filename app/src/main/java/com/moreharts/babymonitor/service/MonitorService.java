@@ -42,6 +42,7 @@ public class MonitorService extends JumbleService {
     public static final String PREF_MUMBLE_CHANNEL = "BabyMonitor";
     public static final String MUMBLE_TOKEN = "com.moreharts.babymonitor";
     private static final long RECONNECT_DELAY = 10000;
+    private static final int RETRY_LIMIT = 5;
 
     public static final float DEFAULT_THRESHOLD = 0.7f;
 
@@ -59,7 +60,8 @@ public class MonitorService extends JumbleService {
     // Local monitor state settings
     private boolean mIsTransmitter = false;
     private float mThreshold = DEFAULT_THRESHOLD;
-    private NotificationMode mSoundMode = NotificationMode.FULL_AUDIO;
+
+    private int mRetryCount = 0;
 
     private String mDesiredChannelName = null;
     private int mDesiredChannelId = -1;
@@ -95,6 +97,9 @@ public class MonitorService extends JumbleService {
         public void onConnected() throws RemoteException {
             Log.i(TAG, "Connected to server");
 
+            // Reset retries
+            mRetryCount = 0;
+
             notifyOnConnectionStatusListenerConnected();
             applyCurrentSettings();
         }
@@ -103,6 +108,9 @@ public class MonitorService extends JumbleService {
         public void onDisconnected() throws RemoteException {
             Log.i(TAG, "Disconnected");
             notifyOnConnectionStatusListenerDisconnected();
+
+            // Reset retries, just to be sure it's good to go
+            mRetryCount = 0;
         }
 
         @Override
@@ -113,23 +121,41 @@ public class MonitorService extends JumbleService {
             mMainHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    Toast toast = Toast.makeText(MonitorService.this, "BabyMonitor connection error", Toast.LENGTH_LONG);
+                    StringBuilder sb = new StringBuilder("Baby Monitor connection failed (");
+                    sb.append(mRetryCount);
+                    sb.append('/');
+                    sb.append(RETRY_LIMIT);
+                    sb.append(" retries)");
+
+                    Toast toast = Toast.makeText(MonitorService.this, sb.toString(), Toast.LENGTH_SHORT);
                     toast.show();
                 }
             });
 
             // Attempt to reconnect
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    connectToPending();
+            if(mRetryCount < RETRY_LIMIT) {
+                mHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mRetryCount++;
+                        connectToPending();
 
-                    // Only continue attempting if we're allowed to connect on this type of network
-                    if(connectionAllowed()) {
-                        mHandler.postDelayed(this, RECONNECT_DELAY);
+                        // Only continue attempting if we're allowed to connect on this type of network
+                        //if(connectionAllowed()) {
+                        //    mHandler.postDelayed(this, RECONNECT_DELAY);
+                        //}
                     }
-                }
-            }, RECONNECT_DELAY);
+                }, RECONNECT_DELAY);
+            }
+            else {
+                mMainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast toast = Toast.makeText(MonitorService.this, "Baby Monitor connection failed", Toast.LENGTH_LONG);
+                        toast.show();
+                    }
+                });
+            }
         }
 
         @Override
