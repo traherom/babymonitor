@@ -94,6 +94,7 @@ public class LocalStatusFragment extends Fragment implements ClientStatus.OnMoni
         mService.addOnTxModeChangedListener(mOnTxModeChangedListener);
         mService.addOnVADThresholdChangedListener(mOnVADThresholdChangedListener);
 
+        mClientControlFragment.setService(mService);
         mStatusAdapter.setService(mService);
     }
 
@@ -115,8 +116,6 @@ public class LocalStatusFragment extends Fragment implements ClientStatus.OnMoni
     private MonitorService.OnVADThresholdChangedListener mOnVADThresholdChangedListener = new MonitorService.OnVADThresholdChangedListener() {
         @Override
         public void onVADThresholdChanged(MonitorService service, float newThreshold) {
-            mClientControlFragment.setThreshold(newThreshold);
-
             mStatusList.forceRefresh();
         }
     };

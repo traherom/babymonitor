@@ -452,12 +452,7 @@ public class ClientStatus extends FragmentActivity implements
     @Override
     public void onThresholdAdjusted(float threshold) {
         Log.d(TAG, "Requesting threshold adjust to " + threshold);
-        try {
-            mService.setVADThreshold(threshold);
-        }
-        catch(RemoteException e) {
-            e.printStackTrace();
-        }
+        mService.setVADThreshold(threshold);
     }
 
     @Override

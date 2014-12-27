@@ -35,6 +35,13 @@ public class ClientControlFragment extends Fragment {
 
     private OnFragmentInteractionListener mListener;
 
+    private MonitorService.OnVADThresholdChangedListener mVADChangeListener = new MonitorService.OnVADThresholdChangedListener() {
+        @Override
+        public void onVADThresholdChanged(MonitorService service, float newThreshold) {
+            setThreshold(newThreshold);
+        }
+    };
+
     /**
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
@@ -56,6 +63,9 @@ public class ClientControlFragment extends Fragment {
 
     public void setService(MonitorService service) {
         mService = service;
+
+        mService.addOnVADThresholdChangedListener(mVADChangeListener);
+        setThreshold(mService.getVADThreshold());
     }
 
     @Override

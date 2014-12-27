@@ -16,7 +16,7 @@ import java.util.ArrayList;
 public class TextMessageManager {
     public static final String TAG = "TextMessageManager";
 
-    public static final int BROADCAST_STATE_DELAY = 1000 * 3;
+    public static final int BROADCAST_STATE_DELAY = 1000 * 30;
 
     public static final String MSG_STATE = "state";
     public static final String CMD_THRESHOLD = "threshold";

@@ -1,6 +1,5 @@
 package com.moreharts.babymonitor.service;
 
-import android.os.RemoteException;
 import android.util.Log;
 
 import com.morlunk.jumble.model.Message;
@@ -40,10 +39,6 @@ public class TxTextMessageReceivedListener implements MonitorService.OnMessageRe
 
                     Log.i(TAG, "TX threshold set to " + newThresh);
                     service.setVADThreshold(newThresh);
-                }
-                catch(RemoteException e) {
-                    Log.e(TAG, "Unable to change threshold: " + e);
-                    e.printStackTrace();
                 }
                 catch(IllegalFormatException e) {
                     Log.e(TAG, "Ignoring threshold change request: " + e);

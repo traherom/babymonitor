@@ -1,6 +1,5 @@
 package com.moreharts.babymonitor.service;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -60,8 +59,6 @@ public class MonitorService extends JumbleService {
     private float mThreshold = DEFAULT_THRESHOLD;
 
     private int mRetryCount = 0;
-
-    private int mDesiredChannelId = -1;
 
     // Helpers
     private Handler mMainHandler = null;
@@ -186,6 +183,7 @@ public class MonitorService extends JumbleService {
         @Override
         public void onUserStateUpdated(User user) throws RemoteException {
             Log.i(TAG, "User state updated: " + user.getName());
+            mTextMessageManager.broadcastState();
         }
 
         @Override
@@ -199,9 +197,7 @@ public class MonitorService extends JumbleService {
             Log.i(TAG, "User joined channel: " + user.getName());
 
             // Make sure we send the current status every time someone joins
-            if(mIsTransmitter) {
-                mTextMessageManager.broadcastState();
-            }
+            mTextMessageManager.broadcastState();
         }
 
         @Override
@@ -215,38 +211,79 @@ public class MonitorService extends JumbleService {
         }
 
         @Override
-        public void onChannelAdded(Channel channel) throws RemoteException {
-            Log.d(TAG, "Channel added: " + channel.getName());
-            if(channel.getName().equals(mSettings.getMumbleChannel())) {
-                mDesiredChannelId = channel.getId();
-            }
-        }
-
-        @Override
-        public void onChannelRemoved(Channel channel) throws RemoteException {
-            if(channel.getName().equals(mSettings.getMumbleChannel())) {
-                mDesiredChannelId = -1;
-            }
-        }
-
-        @Override
         public void onMessageLogged(Message message) throws RemoteException {
             notifyMessageHandlers(message);
         }
     };
 
+    private OnTxModeChangedListener mTxModeChangedListener = new OnTxModeChangedListener() {
+        @Override
+        public void onTXModeChanged(MonitorService service, boolean isTxMode) {
+            if(isTxMode) {
+                mRemoteMonitorTracker.removeOnRemoteMonitorUpdateListener(mRemoteListener);
+            }
+            else {
+                mRemoteMonitorTracker.addOnRemoteMonitorUpdateListener(mRemoteListener);
+            }
+        }
+    };
+
+    private RemoteMonitorTracker.OnRemoteMonitorUpdateListener mRemoteListener = new RemoteMonitorTracker.OnRemoteMonitorUpdateListener() {
+        @Override
+        public void onRemoteMonitorAdded(RemoteMonitorTracker.MonitorState monitor) {
+            if(!isTransmitterMode() && monitor.getIsTx()) {
+                notifyVADThresholdListeners(monitor.getThreshold());
+            }
+        }
+
+        @Override
+        public void onRemoteMonitorRemoved(RemoteMonitorTracker.MonitorState monitor) {
+
+        }
+
+        @Override
+        public void onRemoteMonitorUpdated(RemoteMonitorTracker.MonitorState monitor) {
+            if(!isTransmitterMode() && monitor.getIsTx()) {
+                notifyVADThresholdListeners(monitor.getThreshold());
+            }
+        }
+    };
+
     // Settings
     public float getVADThreshold() {
-        return mThreshold;
+        if(isTransmitterMode())
+            return mThreshold;
+        else
+            return -1;
     }
 
-    public void setVADThreshold(float threshold) throws RemoteException {
+    public void setVADThreshold(float threshold) {
+        if(isTransmitterMode())
+            setLocalVADThreshold(threshold);
+        else
+            setRemoteVADThreshold(threshold);
+    }
+
+    public void setRemoteVADThreshold(float threshold) {
+        if(isTransmitterMode())
+            return;
+
+        if(threshold < 0 || threshold > 1)
+            throw new IllegalArgumentException("Threshold values must be between 0 and 1");
+
+        // Receiver just passes the info off over the network
+        sendThreshold(threshold);
+    }
+
+    public void setLocalVADThreshold(float threshold) {
+        if(!isTransmitterMode())
+            return;
+
         if(threshold < 0 || threshold > 1)
             throw new IllegalArgumentException("Threshold values must be between 0 and 1");
 
         // Don't do anything if it's the same as before, just pretend
         if(threshold == mThreshold) {
-            notifyVADThresholdListeners(threshold);
             return;
         }
 
@@ -255,41 +292,46 @@ public class MonitorService extends JumbleService {
         mThreshold = threshold;
         notifyVADThresholdListeners(mThreshold);
 
-        if(!isTransmitterMode()) {
-            // Receiver just passes the info off over the network
-            sendThreshold();
+        // Transmitter has to actually apply the change
+        try {
+            getBinder().setVADThreshold(mThreshold);
         }
-        else {
-            // Transmitter has to actually apply the change
-            try {
-                getBinder().setVADThreshold(mThreshold);
-            }
-            catch(NullPointerException e) {
-                // This occurs within Jumble if you try to set the threshold before the audio handler is
-                // up and running
-                Log.w(TAG, "Unable to apply threshold yet, trying again after a delay");
-                mHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            getBinder().setVADThreshold(mThreshold);
-                        } catch (NullPointerException e) {
-                            Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
-                            e.printStackTrace();
-                            mHandler.postDelayed(this, 1000);
-                        } catch (RemoteException e) {
-                            Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
-                            e.printStackTrace();
-                        }
+        catch(NullPointerException e) {
+            // This occurs within Jumble if you try to set the threshold before the audio handler is
+            // up and running
+            Log.w(TAG, "Unable to apply threshold yet, trying again after a delay");
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        getBinder().setVADThreshold(mThreshold);
+                    } catch (NullPointerException e) {
+                        Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
+                        e.printStackTrace();
+                        mHandler.postDelayed(this, 1000);
+                    } catch (RemoteException e) {
+                        Log.d(TAG, "Remote exception occurred on VAD set retry: " + e);
+                        e.printStackTrace();
                     }
-                }, 1000);
-            }
+                }
+            }, 1000);
+        }
+        catch(RemoteException e) {
+            e.printStackTrace();
         }
     }
 
     // Channel messages
-    public void sendThreshold() throws RemoteException {
-        mTextMessageManager.sendChannelMessage(buildCmd(TextMessageManager.CMD_THRESHOLD, Float.toString(mThreshold)));
+    public void sendThreshold() {
+        sendThreshold(mThreshold);
+    }
+
+    private void sendThreshold(float threshold) {
+        try {
+            mTextMessageManager.sendChannelMessage(buildCmd(TextMessageManager.CMD_THRESHOLD, Float.toString(threshold)));
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     private String buildCmd(String cmd, String param) {
@@ -442,8 +484,9 @@ public class MonitorService extends JumbleService {
     }
 
     public void setTransmitterMode(final boolean isTx) {
-        if(mIsTransmitter == isTx)
+        if(mIsTransmitter == isTx) {
             return;
+        }
 
         // Disconnect if we're connected now
         boolean isConnected = isConnected();
@@ -512,21 +555,22 @@ public class MonitorService extends JumbleService {
         mNotification = new NotificationHelper(this); // Must come after noise tracker
         mRemoteMonitorTracker = new RemoteMonitorTracker(this); // Must come after text message manager
 
+        addOnTxModeChangedListener(mTxModeChangedListener);
+
         // Load up settings
         if(mSettings.getMumbleHost() != null) {
             mPendingConnectInfo = new Server(0, "manual", mSettings.getMumbleHost(), mSettings.getMumblePort(), mSettings.getUserName(), "");
         }
 
-        try {
-            setTransmitterMode(mSettings.getIsTxMode());
-            setVADThreshold(mSettings.getThreshold());
+        setTransmitterMode(mSettings.getIsTxMode());
+        setVADThreshold(mSettings.getThreshold());
 
-            if(mPendingConnectInfo != null) {
-                connectToPending();
-            }
-        }
-        catch(RemoteException e) {
-            Log.e(TAG, e.getMessage());
+        // Do an initial notify after all our settings are correct
+        notifyOnTxModeChangedListeners(mIsTransmitter);
+        notifyVADThresholdListeners(mThreshold);
+
+        if(mPendingConnectInfo != null) {
+            connectToPending();
         }
     }
 
