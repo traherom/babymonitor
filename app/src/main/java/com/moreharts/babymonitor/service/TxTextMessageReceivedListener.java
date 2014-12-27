@@ -25,7 +25,10 @@ public class TxTextMessageReceivedListener implements MonitorService.OnMessageRe
         String[] parts = msg.getMessage().trim().split(" ");
         String cmd = parts[0].trim().toLowerCase();
 
-        if(cmd.equals(TextMessageManager.CMD_THRESHOLD)) {
+        if(cmd.equals(TextMessageManager.MSG_STATE)) {
+            service.getTextMessageManager().handleStateMessage(msg);
+        }
+        else if(cmd.equals(TextMessageManager.CMD_THRESHOLD)) {
             // Threshold changes
             if(parts.length == 2) {
                 try {

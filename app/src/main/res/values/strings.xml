@@ -67,5 +67,6 @@
     <string name="switch_to_rx_mode_short">Switch to Rx Mode</string>
     <string name="local_status_tab_name">Local Status</string>
     <string name="remote_status_tab_name">Remote Status</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 
 </resources>

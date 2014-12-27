@@ -16,7 +16,7 @@ import java.util.ArrayList;
 public class TextMessageManager {
     public static final String TAG = "TextMessageManager";
 
-    public static final int BROADCAST_STATE_DELAY = 5000;
+    public static final int BROADCAST_STATE_DELAY = 1000 * 3;
 
     public static final String MSG_STATE = "state";
     public static final String CMD_THRESHOLD = "threshold";
@@ -41,10 +41,7 @@ public class TextMessageManager {
     public TextMessageManager(MonitorService service) {
         mService = service;
 
-        // Add message handlers. If ignore messages if not in the correct mode, so no need to swap
-        // them in and out (TODO: do it later for memory)
-        mService.addOnMessageHandler(mTxReceiver);
-        mService.addOnMessageHandler(mRxReceiver);
+        startBroadcaster();
 
         // Watch for changes to mode so we can switch in the correct handlers
         mService.addOnTxModeChangedListener(new MonitorService.OnTxModeChangedListener() {
@@ -53,10 +50,16 @@ public class TextMessageManager {
                 if(isTxMode) {
                     // Start periodic broadcaster of our state
                     startBroadcaster();
+
+                    mService.addOnMessageHandler(mTxReceiver);
+                    mService.removeOnMessageHandler(mRxReceiver);
                 }
                 else {
                     // Stop broadcaster
                     stopBroadcaster();
+
+                    mService.addOnMessageHandler(mRxReceiver);
+                    mService.removeOnMessageHandler(mTxReceiver);
                 }
             }
         });

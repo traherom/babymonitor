@@ -28,8 +28,9 @@ public class RemoteStatusAdapter implements ListAdapter {
     public static final int REFRESH_TIME = 5000;
 
     public static final int USERNAME_LINE = 0;
-    public static final int THRESHOLD_LINE = 1;
-    public static final int NOISE_DETECTED_LINE = 2;
+    public static final int MODE_LINE = 1;
+    public static final int THRESHOLD_LINE = 2;
+    public static final int NOISE_DETECTED_LINE = 3;
     public static final int LINE_COUNT = NOISE_DETECTED_LINE + 1;
 
     private DataSetObservable mObservers = new DataSetObservable();
@@ -187,6 +188,9 @@ public class RemoteStatusAdapter implements ListAdapter {
             case THRESHOLD_LINE:
                 primaryLine.setText("Activity Threshold");
                 break;
+            case MODE_LINE:
+                primaryLine.setText("Mode");
+                break;
             case USERNAME_LINE:
                 primaryLine.setText("User name");
                 break;
@@ -201,6 +205,15 @@ public class RemoteStatusAdapter implements ListAdapter {
             switch (pos) {
                 case THRESHOLD_LINE:
                     secondaryLine.setText(Float.toString(mState.getThreshold()));
+                    break;
+
+                case MODE_LINE:
+                    if(mState.getIsTx()) {
+                        secondaryLine.setText("Transmitter");
+                    }
+                    else {
+                        secondaryLine.setText("Receiver");
+                    }
                     break;
 
                 case USERNAME_LINE:

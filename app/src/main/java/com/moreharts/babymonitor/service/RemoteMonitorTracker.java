@@ -61,7 +61,7 @@ public class RemoteMonitorTracker implements SpinnerAdapter, Iterable<RemoteMoni
         }
 
         public void setIsTx(boolean isTx) {
-            mIsTx = true;
+            mIsTx = isTx;
         }
 
         public boolean getIsTx() {
@@ -226,13 +226,23 @@ public class RemoteMonitorTracker implements SpinnerAdapter, Iterable<RemoteMoni
 
         if(convertView == null) {
             // Need to make the view
-            view = mInflater.inflate(android.R.layout.simple_spinner_dropdown_item, null);
+            view = mInflater.inflate(android.R.layout.simple_spinner_dropdown_item, viewGroup, false);
         }
         else {
             view = convertView;
         }
 
         primaryLine = (TextView)view.findViewById(android.R.id.text1);
+
+
+        MonitorState state = mRemoteMonitors.get(i);
+        StringBuilder sb = new StringBuilder(state.getUser());
+
+        if(state.getIsTx())
+            sb.append(" (TX)");
+        else
+            sb.append(" (RX)");
+
         primaryLine.setText(mRemoteMonitors.get(i).getUser());
 
         return primaryLine;

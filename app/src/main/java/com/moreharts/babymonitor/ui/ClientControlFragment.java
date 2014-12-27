@@ -38,10 +38,7 @@ public class ClientControlFragment extends Fragment {
     /**
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
-     *
-     * @return A new instance of fragment ClientControlFragment.
      */
-    // TODO: Rename and change types and number of parameters
     public static ClientControlFragment newInstance() {
         ClientControlFragment fragment = new ClientControlFragment();
         Bundle args = new Bundle();
@@ -86,15 +83,15 @@ public class ClientControlFragment extends Fragment {
             }
         });
 
-        mMuteButton = (ToggleButton)view.findViewById(R.id.mute_button);
-        mMuteButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(mListener != null) {
-                    mListener.onMuteRequested(mMuteButton.isChecked());
-                }
-            }
-        });
+//        mMuteButton = (ToggleButton)view.findViewById(R.id.mute_button);
+//        mMuteButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                if(mListener != null) {
+//                    mListener.onMuteRequested(mMuteButton.isChecked());
+//                }
+//            }
+//        });
 
         return view;
     }

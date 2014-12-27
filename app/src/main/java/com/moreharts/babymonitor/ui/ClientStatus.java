@@ -140,8 +140,6 @@ public class ClientStatus extends FragmentActivity implements
     private Settings mSettings;
     private ServerList mServerList;
 
-    private String mMumbleUserName = null;
-
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int pos, long id) {
         Log.d(TAG, "User clicked on status list item " + id);
@@ -302,10 +300,6 @@ public class ClientStatus extends FragmentActivity implements
         // Settings
         mSettings = Settings.getInstance(this);
 
-        if(mMumbleUserName == null) {
-            mMumbleUserName = mSettings.getUserName();
-        }
-
         // Start the discoverer
         mServerList = new ServerList(getApplicationContext());
         //mServerList.startServiceDiscovery();
@@ -428,7 +422,7 @@ public class ClientStatus extends FragmentActivity implements
     }
 
     public void connect(String host, int port) {
-        mService.connect(host, port, mMumbleUserName);
+        mService.connect(host, port, mSettings.getUserName());
     }
 
     public void showManualServerDialog() {

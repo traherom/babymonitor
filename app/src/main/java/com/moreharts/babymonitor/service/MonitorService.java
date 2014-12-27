@@ -363,11 +363,9 @@ public class MonitorService extends JumbleService {
 
             // Transmit style
             if(isTransmitterMode()) {
-                Log.i(TAG, "Setting to voice activity mode");
                 getBinder().setTransmitMode(Constants.TRANSMIT_VOICE_ACTIVITY);
             }
             else {
-                Log.i(TAG, "Setting to PTT mode");
                 getBinder().setTransmitMode(Constants.TRANSMIT_PUSH_TO_TALK);
             }
 

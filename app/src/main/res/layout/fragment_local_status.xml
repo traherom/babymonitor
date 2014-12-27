@@ -27,4 +27,6 @@
               android:layout_weight="1"
               tools:layout="@layout/fragment_client_control" />
 
+
+
 </LinearLayout>
