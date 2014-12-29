@@ -53,6 +53,7 @@ public class MonitorService extends JumbleService {
 
     private Handler mHandler = new Handler();
     private ConnectivityManager mConnectivityManager = null;
+    private NetworkInfo mCurrentNetwork = null;
 
     // Local monitor state settings
     private boolean mIsTransmitter = false;
@@ -162,7 +163,7 @@ public class MonitorService extends JumbleService {
                     KeyStore trustStore = BabyTrustStore.getTrustStore(getApplicationContext());
                     trustStore.setCertificateEntry(alias, x509);
                     BabyTrustStore.saveTrustStore(getApplicationContext(), trustStore);
-                    Toast.makeText(getApplicationContext(), R.string.trust_added, Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), R.string.trust_added, Toast.LENGTH_SHORT).show();
 
                     // Reconnect
                     connect(lastServer.getHost(), lastServer.getPort(), lastServer.getUsername()); // FIXME unreliable
@@ -254,7 +255,7 @@ public class MonitorService extends JumbleService {
         if(isTransmitterMode())
             return mThreshold;
         else
-            return -1;
+            return 0.0f;
     }
 
     public void setVADThreshold(float threshold) {
@@ -391,7 +392,7 @@ public class MonitorService extends JumbleService {
                 // text messages and output their own audio
                 if(isWifiNetwork() && !mSettings.getWifiFullAudioOn())
                     shouldDeafen = true;
-                else if(!isWifiNetwork() && !mSettings.getMobileFullAudioOn())
+                else if(isMobileNetwork() && !mSettings.getMobileFullAudioOn())
                     shouldDeafen = true;
             }
 
@@ -428,10 +429,6 @@ public class MonitorService extends JumbleService {
                 }
             }, 1000);
         }
-    }
-
-    public void setDeafen() {
-        setDeafen(true);
     }
 
     public void setDeafen(boolean deafen) {
@@ -535,6 +532,8 @@ public class MonitorService extends JumbleService {
         Log.d(TAG, "Monitor service created");
 
         mMainHandler = new Handler(Looper.getMainLooper());
+        mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        mCurrentNetwork = mConnectivityManager.getActiveNetworkInfo();
 
         // Settings
         mSettings = Settings.getInstance(this);
@@ -619,23 +618,29 @@ public class MonitorService extends JumbleService {
     }
 
     public boolean connectionAllowed() {
+        if(!isNetworkConnected())
+            return false;
+
         if(isWifiNetwork()) {
             return mSettings.getWifiEnabled();
         }
-        else {
+        else if(isMobileNetwork()) {
             return mSettings.getMobileEnabled();
+        }
+        else {
+            return false;
         }
     }
 
-    public boolean isWifiNetwork() {
-        if(mConnectivityManager == null)
-            mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+    public boolean isNetworkConnected() {
+        return mCurrentNetwork != null && mCurrentNetwork.isConnected();
+    }
 
-        NetworkInfo network = mConnectivityManager.getActiveNetworkInfo();
-        if(network == null)
+    public boolean isWifiNetwork() {
+        if(mCurrentNetwork == null)
             return false;
 
-        if(network.getType() == ConnectivityManager.TYPE_WIFI || network.getType() == ConnectivityManager.TYPE_ETHERNET) {
+        if(mCurrentNetwork.getType() == ConnectivityManager.TYPE_WIFI || mCurrentNetwork.getType() == ConnectivityManager.TYPE_ETHERNET) {
             return true;
         }
         else {
@@ -643,11 +648,23 @@ public class MonitorService extends JumbleService {
         }
     }
 
+    public boolean isMobileNetwork() {
+        if(mCurrentNetwork == null)
+            return false;
+
+        if(mCurrentNetwork.getType() == ConnectivityManager.TYPE_WIFI || mCurrentNetwork.getType() == ConnectivityManager.TYPE_ETHERNET) {
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
     /**
      * Helper to determine if audio should be played based on user settings and the current network
      */
     public boolean shouldPlayFullAudio() {
-        if((isWifiNetwork() && mSettings.getWifiFullAudioOn()) || (!isWifiNetwork() && mSettings.getMobileFullAudioOn()))
+        if((isWifiNetwork() && mSettings.getWifiFullAudioOn()) || (isMobileNetwork() && mSettings.getMobileFullAudioOn()))
             return true;
         else
             return false;
@@ -666,7 +683,7 @@ public class MonitorService extends JumbleService {
         mSettings.setMumblePort(port);
 
         // Only honor request if our settings allow it
-        if(!connectionAllowed()) {
+        if(!isNetworkConnected() || !connectionAllowed()) {
             return;
         }
 
@@ -786,7 +803,14 @@ public class MonitorService extends JumbleService {
     public void onNetworkStateChanged() {
         Log.d(TAG, "New internet connection detected");
 
-        // IF we have connection info, try!
+        mCurrentNetwork = mConnectivityManager.getActiveNetworkInfo();
+
+        // Never try to (re)connect if we're still connected
+        if(isConnected()) {
+            Log.i(TAG, "Ignoring network change because we are connected to server");
+            return;
+        }
+
         if(mPendingConnectInfo != null) {
             connectToPending();
         }

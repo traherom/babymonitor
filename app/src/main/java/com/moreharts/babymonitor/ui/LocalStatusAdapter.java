@@ -275,7 +275,7 @@ public class LocalStatusAdapter implements ListAdapter {
 
                 boolean isWifi = mService.isWifiNetwork();
 
-                if((isWifi && mSettings.getWifiFullAudioOn()) || (!isWifi && mSettings.getMobileFullAudioOn())) {
+                if((mService.isWifiNetwork() && mSettings.getWifiFullAudioOn()) || (!mService.isMobileNetwork() && mSettings.getMobileFullAudioOn())) {
                     line2 = "Full audio";
                 }
                 else {

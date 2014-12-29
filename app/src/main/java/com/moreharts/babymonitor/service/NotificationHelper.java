@@ -150,9 +150,6 @@ public class NotificationHelper {
         builder.setContentText("A transmitter detected noise");
         builder.setPriority(NotificationCompat.PRIORITY_HIGH);
 
-        builder.setWhen(mService.getNoiseTracker().getLastNoiseHeard());
-        builder.setUsesChronometer(true);
-
         // Additional notification pieces... sound, vibration, lights
         if(mSettings.isVibrationOn())
             builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);

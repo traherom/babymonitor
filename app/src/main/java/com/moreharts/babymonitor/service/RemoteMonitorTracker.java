@@ -243,7 +243,7 @@ public class RemoteMonitorTracker implements SpinnerAdapter, Iterable<RemoteMoni
         else
             sb.append(" (RX)");
 
-        primaryLine.setText(mRemoteMonitors.get(i).getUser());
+        primaryLine.setText(sb.toString());
 
         return primaryLine;
     }
