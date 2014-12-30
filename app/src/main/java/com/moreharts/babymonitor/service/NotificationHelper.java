@@ -6,7 +6,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.support.v4.app.NotificationCompat;
 
@@ -20,7 +19,6 @@ import com.moreharts.babymonitor.ui.ClientStatus;
  */
 public class NotificationHelper {
     public static final int ONGOING_NOTIFICATION_ID = 2324;
-    public static final int NOISE_NOTIFICATION_ID = 2325;
 
     public static final long[] NOTIFICATION_VIBRATION_PATTERN = {500,100,100,100,100,100};
 
@@ -89,19 +87,12 @@ public class NotificationHelper {
      */
     private void buildAndDisplayNotification() {
         rebuildServiceNotification();
-
-        // An Rx that has noise gets an extra notification
-        if(mUseNoiseNotification && !mService.isTransmitterMode() && mService.isThereNoise()) {
-            rebuildNoiseNotification();
-        }
-        else {
-            cancelNoiseNotification();
-        }
     }
 
     private Notification rebuildServiceNotification() {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(mService);
 
+        // Title for mode
         if(mService.isTransmitterMode()) {
             builder.setContentTitle("Monitor - Transmitter");
         }
@@ -109,21 +100,7 @@ public class NotificationHelper {
             builder.setContentTitle("Monitor - Receiver");
         }
 
-        if(mService.isConnected()) {
-            if(mService.isThereNoise()) {
-                builder.setContentText("Noise! (connected)");
-            }
-            else {
-                builder.setContentText("No noise (connected)");
-            }
-        }
-        else if(mService.isReconnecting()) {
-            builder.setContentText("Reconnecting");
-        }
-        else {
-            builder.setContentText("Disconnected");
-        }
-
+        // By default, everyone uses this stuff
         builder.setSmallIcon(R.drawable.ic_notify);
         builder.setOngoing(true);
 
@@ -134,6 +111,42 @@ public class NotificationHelper {
         PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0, statusIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         builder.setContentIntent(pendingIntent);
 
+        if(mService.isConnected()) {
+            if(mService.isThereNoise()) {
+                builder.setContentText("A transmitter detected noise");
+                builder.setSmallIcon(R.drawable.ic_notify_wsound);
+
+                builder.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+
+                // Additional notification pieces... sound, vibration, lights
+                if(mSettings.isVibrationOn())
+                    builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
+                if(mSettings.isLEDOn())
+                    builder.setLights(Color.BLUE, 1000, 1000);
+                if(!mService.shouldPlayFullAudio()) {
+                    Uri sound = mSettings.getNotificationSound();
+                    builder.setSound(sound);
+                }
+            }
+            else {
+                builder.setContentText("Connected, no noise");
+            }
+        }
+        else {
+            // Specify type of "not connected"
+            if(mService.isWaitingToConnect()) {
+                builder.setContentText("Waiting for allowed network");
+            }
+            else if(mService.isReconnecting()) {
+                builder.setContentText("Reconnecting");
+            }
+            else {
+                builder.setContentText("Not connected");
+            }
+
+
+        }
+
         // Control buttons
         //builder.addAction();
 
@@ -141,47 +154,5 @@ public class NotificationHelper {
         mNotificationManager.notify(ONGOING_NOTIFICATION_ID, mServiceNotification);
 
         return mServiceNotification;
-    }
-
-    private Notification rebuildNoiseNotification() {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(mService);
-        builder.setContentTitle("Monitor - Noise heard!");
-
-        builder.setContentText("A transmitter detected noise");
-        builder.setPriority(NotificationCompat.PRIORITY_HIGH);
-
-        // Additional notification pieces... sound, vibration, lights
-        if(mSettings.isVibrationOn())
-            builder.setVibrate(NOTIFICATION_VIBRATION_PATTERN);
-        if(mSettings.isLEDOn())
-            builder.setLights(Color.BLUE, 1000, 1000);
-        if(!mService.shouldPlayFullAudio()) {
-            Uri sound = mSettings.getNotificationSound();
-            builder.setSound(sound);
-        }
-
-        // Keep it from being annoying
-        builder.setOnlyAlertOnce(true);
-
-        builder.setSmallIcon(R.drawable.ic_notify_wsound);
-
-        // Open status activity on click
-        // FLAG_CANCEL_CURRENT ensures that the extra always gets sent.
-        Intent statusIntent = statusIntent = new Intent(mService, ClientStatus.class);
-        statusIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0, statusIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-        builder.setContentIntent(pendingIntent);
-
-        // Control buttons
-        //builder.addAction();
-
-        mNoiseNotification = builder.build();
-        mNotificationManager.notify(NOISE_NOTIFICATION_ID, mNoiseNotification);
-
-        return mNoiseNotification;
-    }
-
-    private void cancelNoiseNotification() {
-        mNotificationManager.cancel(NOISE_NOTIFICATION_ID);
     }
 }

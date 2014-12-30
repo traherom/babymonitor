@@ -6,7 +6,6 @@ import android.database.DataSetObserver;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -193,10 +192,7 @@ public class LocalStatusAdapter implements ListAdapter {
 
             line2 = sb.toString();
         }
-        else if(mService.getPendingConnectionInfo() == null) {
-            line2 = "No connection info";
-        }
-        else if(!mService.connectionAllowed()) {
+        else if(mService.isWaitingToConnect()) {
             line2 = "Waiting for allowed network";
         }
         else if(mService.isReconnecting()) {

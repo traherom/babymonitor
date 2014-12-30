@@ -115,7 +115,7 @@ public class MonitorService extends JumbleService {
             mCurrentNetwork = mConnectivityManager.getActiveNetworkInfo();
 
             // Attempt to reconnect if we are on a valid network connection
-            if(isNetworkConnected() && connectionAllowed() && mRetryCount < RETRY_LIMIT) {
+            if(isNetworkConnected() && isConnectionAllowed() && mRetryCount < RETRY_LIMIT) {
                     mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -626,7 +626,7 @@ public class MonitorService extends JumbleService {
         return mBinder;
     }
 
-    public boolean connectionAllowed() {
+    public boolean isConnectionAllowed() {
         if(!isNetworkConnected())
             return false;
 
@@ -692,7 +692,7 @@ public class MonitorService extends JumbleService {
         mSettings.setMumblePort(port);
 
         // Only honor request if our settings allow it
-        if(!isNetworkConnected() || !connectionAllowed()) {
+        if(!isNetworkConnected() || !isConnectionAllowed()) {
             return;
         }
 
@@ -770,6 +770,17 @@ public class MonitorService extends JumbleService {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public boolean isWaitingToConnect() {
+        if(isConnected())
+            return false;
+        else if(mPendingConnectInfo == null)
+            return false;
+        else if(isConnectionAllowed())
+            return false;
+        else
+            return true;
     }
 
     /**
