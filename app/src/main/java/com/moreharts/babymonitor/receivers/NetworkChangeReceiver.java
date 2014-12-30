@@ -5,6 +5,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.IBinder;
@@ -30,5 +31,13 @@ public class NetworkChangeReceiver  extends BroadcastReceiver {
         if(service != null) {
             service.onNetworkStateChanged();
         }
+    }
+
+    public static void enableReceiver(Context context, boolean enabled) {
+        ComponentName receiver = new ComponentName(context, NetworkChangeReceiver.class);
+        PackageManager pm = context.getPackageManager();
+        pm.setComponentEnabledSetting(receiver,
+                enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
     }
 }

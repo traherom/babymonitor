@@ -18,6 +18,7 @@ import android.widget.Toast;
 import com.moreharts.babymonitor.R;
 import com.moreharts.babymonitor.preferences.BabyTrustStore;
 import com.moreharts.babymonitor.preferences.Settings;
+import com.moreharts.babymonitor.receivers.NetworkChangeReceiver;
 import com.morlunk.jumble.Constants;
 import com.morlunk.jumble.JumbleService;
 import com.morlunk.jumble.model.Channel;
@@ -103,9 +104,6 @@ public class MonitorService extends JumbleService {
         public void onDisconnected() throws RemoteException {
             Log.i(TAG, "Disconnected");
             notifyOnConnectionStatusListenerDisconnected();
-
-            // Reset retries, just to be sure it's good to go
-            mRetryCount = 0;
         }
 
         @Override
@@ -113,9 +111,12 @@ public class MonitorService extends JumbleService {
             Log.i(TAG, "Connection error: " + message);
             notifyOnConnectionStatusListenerConnectionError(message, reconnecting);
 
+            // Refresh active network info when something goes wrong
+            mCurrentNetwork = mConnectivityManager.getActiveNetworkInfo();
+
             // Attempt to reconnect if we are on a valid network connection
-            if(connectionAllowed() && mRetryCount < RETRY_LIMIT) {
-                mMainHandler.post(new Runnable() {
+            if(isNetworkConnected() && connectionAllowed() && mRetryCount < RETRY_LIMIT) {
+                    mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         StringBuilder sb = new StringBuilder("Baby Monitor connection failed (");
@@ -132,8 +133,11 @@ public class MonitorService extends JumbleService {
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        mRetryCount++;
-                        connectToPending();
+                        // If we're really not connected, try again
+                        if(!isConnected()) {
+                            mRetryCount++;
+                            connectToPending();
+                        }
                     }
                 }, RECONNECT_DELAY);
             }
@@ -518,7 +522,6 @@ public class MonitorService extends JumbleService {
             }
         }
         catch (NullPointerException e) {
-            e.printStackTrace();
             return mSettings.getUserName();
         }
         catch (RemoteException e) {
@@ -534,6 +537,9 @@ public class MonitorService extends JumbleService {
         mMainHandler = new Handler(Looper.getMainLooper());
         mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         mCurrentNetwork = mConnectivityManager.getActiveNetworkInfo();
+
+        // Listen for network changes
+        NetworkChangeReceiver.enableReceiver(this, true);
 
         // Settings
         mSettings = Settings.getInstance(this);
@@ -588,6 +594,9 @@ public class MonitorService extends JumbleService {
     @Override
     public void onDestroy() {
         Log.d(TAG, "Destroying MonitorService");
+
+        // Stop listening for network changes
+        NetworkChangeReceiver.enableReceiver(this, false);
 
         disconnect();
         stopForeground(true);
@@ -812,6 +821,7 @@ public class MonitorService extends JumbleService {
         }
 
         if(mPendingConnectInfo != null) {
+            mRetryCount = 0;
             connectToPending();
         }
     }

@@ -124,7 +124,7 @@ public class NotificationHelper {
             builder.setContentText("Disconnected");
         }
 
-        builder.setSmallIcon(R.drawable.notification_icon);
+        builder.setSmallIcon(R.drawable.ic_notify);
         builder.setOngoing(true);
 
         // Open status activity on click
@@ -163,7 +163,7 @@ public class NotificationHelper {
         // Keep it from being annoying
         builder.setOnlyAlertOnce(true);
 
-        builder.setSmallIcon(R.drawable.notification_icon);
+        builder.setSmallIcon(R.drawable.ic_notify_wsound);
 
         // Open status activity on click
         // FLAG_CANCEL_CURRENT ensures that the extra always gets sent.
